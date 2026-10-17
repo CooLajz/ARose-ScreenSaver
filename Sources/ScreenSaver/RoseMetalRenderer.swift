@@ -10,6 +10,8 @@ final class RoseMetalRenderer {
     let surface = CAMetalLayer()
     private let queue: MTLCommandQueue
     private let additive: MTLRenderPipelineState
+    private let interpolatePipeline: MTLComputePipelineState
+    private let rainbowTable: MTLBuffer
     private let dots: MTLRenderPipelineState
     private var colors = [Double: (SIMD4<Float>, SIMD4<Float>)]()
     private let over: MTLRenderPipelineState
@@ -36,6 +38,8 @@ final class RoseMetalRenderer {
     }
     private var slots = [Slot(), Slot(), Slot()]
     private final class Slot {
+        var endpoints: MTLBuffer?
+        var endpointRevision: UInt64?
         var halos: MTLBuffer?
         var instances: MTLBuffer?
         var buffer: MTLBuffer?
@@ -63,10 +67,23 @@ final class RoseMetalRenderer {
                 c.destinationAlphaBlendFactor = additive ? .one : .oneMinusSourceAlpha
                 return try device.makeRenderPipelineState(descriptor: d)
             }
+            interpolatePipeline = try device.makeComputePipelineState(function: library.makeFunction(name: "prepareInterpolated")!)
             dots = try pipeline("pointFragment", additive: false)
             additive = try pipeline("halo", additive: true)
             over = try pipeline("foreground", additive: false)
         } catch { NSLog("ARose Metal initialization: %@", String(describing: error)); return nil }
+        // Convert the calibrated rainbow to device RGB once, not per displayed point.
+        var rainbow = [SIMD4<Float>]()
+        for i in 0...4096 {
+            for saturation in [0.9, 0.25] {
+                let c = NSColor(calibratedHue: Double(i % 4096) / 4096, saturation: saturation,
+                                brightness: 1, alpha: 1).usingColorSpace(.deviceRGB)!
+                rainbow.append(SIMD4(Float(c.redComponent), Float(c.greenComponent), Float(c.blueComponent), 1))
+            }
+        }
+        guard let table = device.makeBuffer(bytes: rainbow, length: rainbow.count * MemoryLayout<SIMD4<Float>>.stride,
+                                             options: .storageModeShared) else { return nil }
+        rainbowTable = table
         let d = MTLTextureDescriptor()
         d.textureType = .type2DArray; d.pixelFormat = .rgba8Unorm
         d.width = 64; d.height = 64; d.arrayLength = sprites.count
@@ -91,7 +108,7 @@ final class RoseMetalRenderer {
 
     /// No blocking GPU wait on the display thread. Drop a presentation if all three
     /// resource slots are busy; the PAL simulation clock continues independently.
-    func present(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double,
+    func present(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double, previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1, revision: UInt64? = nil,
                  foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> Bool {
         failureLock.lock(); let failed = commandFailed; failureLock.unlock()
         guard !failed else { return false }
@@ -110,7 +127,7 @@ final class RoseMetalRenderer {
         }
         let slot = slots[slotIndex]
         guard let command = encode(target: drawable.texture, slot: slot, size: size, backing: backing,
-                                   history: history, glow: glow, foreground: foreground, overlay: overlay) else {
+                                   history: history, glow: glow, previous: previous, alpha: alpha, revision: revision, foreground: foreground, overlay: overlay) else {
             available.signal(); return false
         }
         slotIndex = (slotIndex + 1) % slots.count
@@ -126,7 +143,7 @@ final class RoseMetalRenderer {
     }
 
     /// Synchronous readback exists only for regression tests, never the display loop.
-    func snapshot(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double,
+    func snapshot(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double, previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1,
                   foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> CGImage? {
         let width = Int(size.width * backing), height = Int(size.height * backing)
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
@@ -134,7 +151,7 @@ final class RoseMetalRenderer {
         guard let texture = device.makeTexture(descriptor: d) else { return nil }
         let preparationStart = Self.cpuTime()
         guard let command = encode(target: texture, slot: snapshotSlot, size: size, backing: backing,
-                                   history: history, glow: glow, foreground: foreground, overlay: overlay) else { return nil }
+                                   history: history, glow: glow, previous: previous, alpha: alpha, foreground: foreground, overlay: overlay) else { return nil }
         lastSnapshotPreparationCPU = Self.cpuTime() - preparationStart
         command.commit(); command.waitUntilCompleted()
         lastSnapshotGPUTime = max(0, command.gpuEndTime - command.gpuStartTime)
@@ -181,6 +198,7 @@ final class RoseMetalRenderer {
 
     private func encode(target: MTLTexture, slot: Slot, size: CGSize, backing: CGFloat,
                         history: [[RoseEngine.ModernPoint]], glow: Double,
+                        previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1, revision: UInt64? = nil,
                         foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> MTLCommandBuffer? {
         let width = target.width, height = target.height
         // Production only uploads a small debug label, never a full-screen bitmap.
@@ -213,6 +231,52 @@ final class RoseMetalRenderer {
             context.restoreGState()
         }
         guard let command = queue.makeCommandBuffer() else { return nil }
+        let gpuCount = history.reduce(0) { $0 + $1.count }
+        let interpolateOnGPU = previous != nil && foreground == nil
+        if interpolateOnGPU && gpuCount > 0 {
+            guard gpuCount <= maximumTrailPoints else { return nil }
+            let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600)) * backing
+            guard preparePoints(diameter: diameter) else { return nil }
+            if slot.endpoints == nil {
+                slot.endpoints = device.makeBuffer(length: maximumTrailPoints * 2 * MemoryLayout<SIMD4<Float>>.stride, options: .storageModeShared)
+            }
+            if slot.halos == nil {
+                slot.halos = device.makeBuffer(length: maximumTrailPoints * MemoryLayout<Sprite>.stride, options: .storageModeShared)
+                instanceBufferAllocations += 1
+            }
+            if slot.instances == nil {
+                slot.instances = device.makeBuffer(length: maximumTrailPoints * 2 * MemoryLayout<Sprite>.stride, options: .storageModeShared)
+                instanceBufferAllocations += 1
+            }
+            guard let endpoints = slot.endpoints, let halos = slot.halos, let instances = slot.instances else { return nil }
+            if revision == nil || slot.endpointRevision != revision {
+                let output = endpoints.contents().bindMemory(to: SIMD4<Float>.self, capacity: maximumTrailPoints * 2)
+                let old = previous!
+                var index = 0
+                for (age, points) in history.enumerated() {
+                    let strength = Float(0.25 + 0.75 * Double(age + 1) / Double(history.count))
+                    for (j, point) in points.enumerated() {
+                        let before = old.count == history.count && old[age].count == points.count ? old[age][j] : point
+                        output[index] = SIMD4(Float(before.x), Float(before.y), Float(before.hue), strength)
+                        output[index + 1] = SIMD4(Float(point.x), Float(point.y), Float(point.hue), strength)
+                        index += 2
+                    }
+                }
+                slot.endpointRevision = revision
+            }
+            var parameters = [SIMD4(Float(width), Float(height), Float(min(size.width, size.height) / 640 * backing), Float(min(1, max(0, alpha)))),
+                              SIMD4(Float(diameter), Float(glow), Float(pointTile), Float(gpuCount))]
+            guard let compute = command.makeComputeCommandEncoder() else { return nil }
+            compute.setComputePipelineState(interpolatePipeline)
+            compute.setBuffer(endpoints, offset: 0, index: 0)
+            compute.setBuffer(halos, offset: 0, index: 1)
+            compute.setBuffer(instances, offset: 0, index: 2)
+            compute.setBuffer(rainbowTable, offset: 0, index: 3)
+            compute.setBytes(&parameters, length: 2 * MemoryLayout<SIMD4<Float>>.stride, index: 4)
+            compute.dispatchThreads(MTLSize(width: gpuCount, height: 1, depth: 1),
+                                    threadsPerThreadgroup: MTLSize(width: interpolatePipeline.threadExecutionWidth, height: 1, depth: 1))
+            compute.endEncoding()
+        }
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = target
         pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
@@ -220,7 +284,12 @@ final class RoseMetalRenderer {
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return nil }
         var viewport = SIMD2<Float>(Float(width), Float(height))
         encoder.setVertexBytes(&viewport, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
-        if glow > 0 && !history.isEmpty {
+        if interpolateOnGPU && gpuCount > 0 && glow > 0 {
+            encoder.setRenderPipelineState(additive); encoder.setVertexBuffer(slot.halos, offset: 0, index: 0)
+            encoder.setFragmentTexture(atlas, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: gpuCount)
+        }
+        if !interpolateOnGPU && glow > 0 && !history.isEmpty {
             let scale = min(size.width, size.height) / 640
             let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600))
             let halo = diameter * (4 + 12 * glow) * backing
@@ -250,6 +319,12 @@ final class RoseMetalRenderer {
             encoder.setVertexBytes(&full, length: MemoryLayout<Sprite>.stride, index: 0)
             encoder.setFragmentTexture(texture, index: 0)
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        } else if interpolateOnGPU {
+            if gpuCount > 0 {
+                encoder.setFragmentTexture(pointAtlas, index: 0)
+                encoder.setRenderPipelineState(dots); encoder.setVertexBuffer(slot.instances, offset: 0, index: 0)
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: gpuCount * (glow > 0 ? 2 : 1))
+            }
         } else {
             let scale = min(size.width, size.height) / 640
             let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600)) * backing
@@ -308,6 +383,30 @@ final class RoseMetalRenderer {
     #include <metal_stdlib>
     using namespace metal;
     struct Sprite { float4 rect; float4 parameters; float4 color; };
+    kernel void prepareInterpolated(device const float4 *endpoints [[buffer(0)]],
+        device Sprite *halos [[buffer(1)]], device Sprite *points [[buffer(2)]],
+        device const float4 *rainbow [[buffer(3)]], constant float4 *params [[buffer(4)]],
+        uint i [[thread_position_in_grid]]) {
+        float4 geometry = params[0], style = params[1];
+        if (i >= uint(style.w)) return;
+        float4 a = endpoints[i*2], b = endpoints[i*2+1];
+        float delta = b.z-a.z;
+        if (delta > 0.5) delta -= 1; if (delta < -0.5) delta += 1;
+        float hue = fract(a.z + delta * geometry.w);
+        float2 position = mix(a.xy,b.xy,geometry.w) * geometry.z;
+        float haloSize = style.x * (4 + 12 * style.y);
+        halos[i] = Sprite{float4(geometry.xy/2 + float2(position.x,-position.y) - haloSize/2,haloSize,haloSize),
+                          float4(min(255.0,floor(hue*256)),style.y*b.w*0.5,0,0),float4(0)};
+        float2 pixel = geometry.xy/2 + float2(position.x,-position.y);
+        float2 phase = fract(pixel);
+        float4 rect = float4(floor(pixel)-floor(style.z/2),style.z,style.z);
+        float lookup = hue * 4096; uint base = uint(floor(lookup)); float t = fract(lookup);
+        uint count = style.y > 0 ? 2 : 1;
+        for (uint slice=0; slice<count; ++slice) {
+            float4 color = mix(rainbow[base*2+slice],rainbow[(base+1)*2+slice],t);
+            points[i*count+slice] = Sprite{rect,float4(phase.x,b.w*(slice==0?1:style.y*0.8),phase.y,float(slice)),color};
+        }
+    }
     struct Out { float4 position [[position]]; float2 uv; float4 params [[flat]]; float4 color [[flat]]; float2 extent [[flat]]; };
     vertex Out roseVertex(uint v [[vertex_id]], uint i [[instance_id]],
                     constant Sprite *sprites [[buffer(0)]], constant float2 &viewport [[buffer(1)]]) {

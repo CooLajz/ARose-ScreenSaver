@@ -2,6 +2,10 @@
 
 ## Unreleased — public distribution preparation
 
+- Move macOS Modern interpolation and sprite preparation to a Metal compute
+  shader with a device-RGB rainbow lookup and reusable endpoint buffers.
+  Compare 45 GPU readbacks against CPU interpolation and benchmark preparation.
+
 - Synchronize macOS 14+ Modern presentation to the display, including 120 Hz,
   with position and wrapped-hue interpolation between unchanged PAL steps.
   Keep retro/older macOS timing and test 60/120/144 Hz simulation equivalence.

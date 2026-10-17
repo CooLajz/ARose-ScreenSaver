@@ -83,6 +83,27 @@ for glow in [0.0, 0.8, 1.0] {
     let empty = gpu.snapshot(size: size, backing: backing, history: [], glow: glow)!
     let emptyPixels = pixels(empty)
     precondition(emptyPixels.indices.filter { $0 % 4 != 3 }.allSatisfy { emptyPixels[$0] == 0 }, "Empty history must clear to black")
+    let previous = view.engine.modernHistory
+    view.engine.step()
+    for alpha in [0.0, 0.37, 1.0] {
+        let referenceHistory = RoseInterpolation.history(previous: previous, current: view.engine.modernHistory, alpha: alpha)
+        let referenceImage = gpu.snapshot(size: size, backing: backing, history: referenceHistory, glow: glow)!
+        let referenceCPU = gpu.lastSnapshotPreparationCPU
+        let computedImage = gpu.snapshot(size: size, backing: backing, history: view.engine.modernHistory, glow: glow,
+                                         previous: previous, alpha: alpha)!
+        let computedCPU = gpu.lastSnapshotPreparationCPU
+        let referenceBytes = pixels(referenceImage), computedBytes = pixels(computedImage)
+        var maxError = 0, squareError = 0.0, referenceEnergy = 0.0, computedEnergy = 0.0
+        for i in referenceBytes.indices where i % 4 != 3 {
+            let delta = abs(Int(referenceBytes[i]) - Int(computedBytes[i]))
+            maxError = max(maxError, delta); squareError += Double(delta * delta)
+            referenceEnergy += Double(referenceBytes[i]); computedEnergy += Double(computedBytes[i])
+        }
+        let rms = sqrt(squareError / Double(width * height * 3))
+        let energy = abs(computedEnergy / referenceEnergy - 1)
+        print("INTERPOLATION alpha=\(alpha) max=\(maxError) rms=\(rms) energy=\(energy) CPU ms \(referenceCPU*1000) -> \(computedCPU*1000)")
+        precondition(maxError <= 2 && rms < 0.02 && energy < 0.001, "GPU interpolation changed image")
+    }
     if frame != 1551 { continue }
     var cpu = 0.0, preparation = 0.0, execution = 0.0
     for n in 0..<15 {
@@ -99,3 +120,25 @@ for glow in [0.0, 0.8, 1.0] {
 }
 
 }
+
+// Same changing 120 Hz workload on both paths; exclude synchronous readback from
+// preparation timings. This measures CPU preparation, not whole-process usage.
+let benchmarkEngine = RoseEngine()
+benchmarkEngine.modern = true; benchmarkEngine.speed = 3; benchmarkEngine.tail = 16
+for _ in 0..<1551 { benchmarkEngine.step() }
+var previous = benchmarkEngine.modernHistory
+var referenceTotal = 0.0, computeTotal = 0.0
+for tick in 0..<120 {
+    if tick % 12 < 5 { previous = benchmarkEngine.modernHistory; benchmarkEngine.step() }
+    let alpha = Double((tick * 5) % 12) / 12
+    let begin = cpuTime()
+    let history = RoseInterpolation.history(previous: previous, current: benchmarkEngine.modernHistory, alpha: alpha)
+    let interpolationCPU = cpuTime() - begin
+    precondition(gpu.snapshot(size: CGSize(width: 640, height: 480), backing: 1,
+                              history: history, glow: 0.8) != nil)
+    let referenceCPU = interpolationCPU + gpu.lastSnapshotPreparationCPU
+    precondition(gpu.snapshot(size: CGSize(width: 640, height: 480), backing: 1,
+                              history: benchmarkEngine.modernHistory, glow: 0.8, previous: previous, alpha: alpha) != nil)
+    if tick >= 24 { referenceTotal += referenceCPU; computeTotal += gpu.lastSnapshotPreparationCPU }
+}
+print("INTERPOLATION BENCHMARK CPU preparation ms/frame: \(referenceTotal / 96 * 1000) -> \(computeTotal / 96 * 1000)")

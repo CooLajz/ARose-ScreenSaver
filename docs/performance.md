@@ -195,3 +195,27 @@ unavailable-drawable skips at the steady-animation check. This is submission
 cadence, not proof of a locked 120 displayed frames/s. Window resize while paused,
 glow changes and reset passed. System-saver full-screen smoothness still needs
 visual acceptance; refresh can vary with system scheduling and power policy.
+
+## GPU interpolation preparation (17 October 2026)
+
+Modern presentation now passes consecutive simulation histories to a Metal
+compute shader. The shader interpolates position and wrapped hue and builds
+halo/point instances. A 4,097-entry rainbow lookup, converted once through the
+same calibrated NSColor-to-device-RGB path, replaces per-point NSColor creation.
+Per-slot endpoint buffers are reused and refreshed only when simulation revision
+changes; intermediate display callbacks update interpolation/style parameters.
+CPU interpolation and the prior renderer remain available to regression tests
+and CPU fallback. Simulation and display-link cadence are unchanged.
+
+45 GPU readback comparisons (five sizes/trails, three glow levels and three
+interpolation phases) differed from CPU-prepared Metal images by at most 1/255
+per channel, RMS 0.0063/255, and total RGB energy 0.0034%. Test bounds are 2/255,
+RMS 0.02/255 and energy 0.1%. These are measured approximations, not bit identity.
+
+A changing-history benchmark at 640 x 480, glow 80% and tail 16 measured average
+CPU preparation of 7.847 ms/frame on the previous path versus 0.0312 ms/frame
+on the compute path (96 measured samples after 24 warm-up samples). It excludes
+synchronous readback and is not a whole-process CPU or battery measurement.
+The window test on a 120 Hz screen submitted approximately 117.6 frames/s in its
+initial measurement, with no busy/no-drawable skips, and passed paused resize,
+glow toggling and reset. Full-screen system-saver CPU needs user confirmation.

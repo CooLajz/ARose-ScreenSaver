@@ -71,7 +71,12 @@ final class ARoseView: ScreenSaverView {
     private var animationActive = false
     private var screenObserver: NSObjectProtocol?
     private var previousHistory = [[RoseEngine.ModernPoint]]()
-    private var presentationHistory: [[RoseEngine.ModernPoint]]?
+    private var interpolationEnabled = false
+    private var presentationRevision: UInt64 = 0
+    private var presentationHistory: [[RoseEngine.ModernPoint]]? {
+        interpolationEnabled ? RoseInterpolation.history(previous: previousHistory, current: engine.modernHistory,
+                                                          alpha: accumulator / 0.02) : nil
+    }
 
     private func updateDisplayClock() {
         guard #available(macOS 14.0, *) else { return }
@@ -253,7 +258,8 @@ final class ARoseView: ScreenSaverView {
         cpuMeter = RoseCPUMeter()
         modernColors.removeAll(keepingCapacity: true)
         previousHistory.removeAll()
-        presentationHistory = nil
+        interpolationEnabled = false
+        presentationRevision &+= 1
         engine = RoseEngine()
         let storedGlow = defaults.double(forKey: "glow")
         glow = storedGlow.isFinite ? min(1, max(0, storedGlow)) : 0
@@ -291,7 +297,8 @@ final class ARoseView: ScreenSaverView {
         if lastTime == 0 {
             previousHistory = engine.modernHistory
             engine.step()
-            presentationHistory = nil
+            interpolationEnabled = false
+            presentationRevision &+= 1
             displayAnimationFrame()
             checkpointFigureIfNeeded()
             // Initial shader/atlas/drawable preparation is not elapsed animation
@@ -308,11 +315,9 @@ final class ARoseView: ScreenSaverView {
         let previousFrame = engine.frame
         while accumulator + 1e-12 >= 0.02 {
             if interpolate { previousHistory = engine.modernHistory }
-            engine.step(); accumulator = max(0, accumulator - 0.02)
+            engine.step(); presentationRevision &+= 1; accumulator = max(0, accumulator - 0.02)
         }
-        presentationHistory = interpolate ? RoseInterpolation.history(previous: previousHistory,
-            current: engine.modernHistory, alpha: accumulator / 0.02) : nil
-        if interpolate { modernColors.removeAll(keepingCapacity: true) }
+        interpolationEnabled = interpolate
         // Timer jitter can call us before the next PAL step. Keep the existing
         // image instead of redrawing an identical frame; never clear pending damage.
         if interpolate || engine.frame != previousFrame { displayAnimationFrame() }
@@ -349,8 +354,9 @@ final class ARoseView: ScreenSaverView {
                 renderer.surface.frame = bounds
                 renderer.surface.contentsScale = backing
                 renderer.surface.isHidden = false
-                if renderer.present(size: bounds.size, backing: backing, history: presentationHistory ?? engine.modernHistory,
-                                    glow: glow, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil) { return }
+                if renderer.present(size: bounds.size, backing: backing, history: engine.modernHistory,
+                                    glow: glow, previous: interpolationEnabled ? previousHistory : engine.modernHistory,
+                                    alpha: interpolationEnabled ? accumulator / 0.02 : 1, revision: presentationRevision, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil) { return }
                 renderer.surface.isHidden = true
             }
         } else { metalRenderer?.surface.isHidden = true }
@@ -419,6 +425,7 @@ final class ARoseView: ScreenSaverView {
     }
     func drawModern(in context: CGContext, includeGlow: Bool = true, backing: CGFloat? = nil) {
         let history = presentationHistory ?? engine.modernHistory
+        if interpolationEnabled { modernColors.removeAll(keepingCapacity: true) }
         context.saveGState()
         defer { context.restoreGState() }
         // Uniform scaling keeps the rose circular on ultrawide and portrait displays.
