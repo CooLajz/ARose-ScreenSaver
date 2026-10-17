@@ -2,6 +2,9 @@
 
 ## Unreleased — public distribution preparation
 
+- Transfer macOS bookmark ownership when a retained legacy view stops receiving
+  animation frames, and prevent its late stop from overwriting newer progress.
+
 - Save macOS figure checkpoints after the first frame and every second so short
   legacy-host sessions survive missing stop callbacks. Document host-misreported
   previews and add a regression test that deliberately omits stopAnimation.

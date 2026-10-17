@@ -114,3 +114,29 @@ do {
     next.stopAnimation()
 }
 print("OK: first-frame and one-second checkpoints survive missing stopAnimation.")
+
+// Regression: the host retains the old view, but stops delivering frames without
+// calling stopAnimation. The next active view must acquire the expired lease.
+do {
+    let name = "cz.coolajz.ARose.writer-tests.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.set(true, forKey: "resumeFigure")
+    let rect = NSRect(x: 0, y: 0, width: 800, height: 600)
+    let stale = ARoseView(frame: rect, isPreview: false, settings: prefs)!
+    stale.startAnimation(); stale.engine.step(); stale.checkpointFigureIfNeeded()
+    let active = ARoseView(frame: rect, isPreview: false, settings: prefs)!
+    active.startAnimation()
+    for _ in 0..<100 { active.engine.step() }
+    active.checkpointFigureIfNeeded(at: ProcessInfo.processInfo.systemUptime + 2)
+    let expected = active.engine.savedFigure()
+    precondition(prefs.array(forKey: "figureState.v1") as? [Int] == expected)
+    stale.stopAnimation() // A late stop must not overwrite the newer bookmark.
+    precondition(prefs.array(forKey: "figureState.v1") as? [Int] == expected)
+    active.stopAnimation()
+    let next = ARoseView(frame: rect, isPreview: false, settings: prefs)!
+    next.startAnimation()
+    precondition(next.engine.savedFigure() == expected)
+    next.stopAnimation()
+}
+print("OK: retained inactive writers relinquish their lease; late stops cannot roll back the bookmark.")

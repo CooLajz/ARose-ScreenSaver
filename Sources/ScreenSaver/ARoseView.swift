@@ -82,6 +82,7 @@ final class ARoseView: ScreenSaverView {
     private static weak var figureWriter: ARoseView?
     private var figureSession = false
     private var lastFigureSave = 0
+    private var lastFigureActivity: TimeInterval = 0
     var paused = false
     var configurationSaved: (() -> Void)?
 
@@ -117,6 +118,7 @@ final class ARoseView: ScreenSaverView {
         if configuration() != loadedConfiguration { reset() }
         if !isPreview && !figureSession {
             if Self.figureWriter == nil { Self.figureWriter = self }
+            lastFigureActivity = ProcessInfo.processInfo.systemUptime
             figureSession = true
             if defaults.bool(forKey: "resumeFigure"), let state = defaults.array(forKey: figureStorageKey) as? [Int] {
                 let restored = engine.restoreFigure(state)
@@ -140,7 +142,18 @@ final class ARoseView: ScreenSaverView {
     }
     // Legacy macOS hosts can omit stopAnimation, including after short runs.
     // Checkpoint the first rendered frame and then once per second, not per draw.
-    func checkpointFigureIfNeeded() {
+    func checkpointFigureIfNeeded(at now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        guard figureSession, !isPreview, defaults.bool(forKey: "resumeFigure") else { return }
+        // A legacy host can retain an inactive view without stopAnimation. A weak
+        // reference alone cannot distinguish it from a live writer. Renew only
+        // while frames advance; allow another view to take over an expired lease.
+        if let writer = Self.figureWriter, writer !== self {
+            if now - writer.lastFigureActivity > 1.5 {
+                Self.figureWriter = self
+                configurationLog.notice("Figure writer transferred from inactive view")
+            }
+        } else if Self.figureWriter == nil { Self.figureWriter = self }
+        lastFigureActivity = now
         guard lastFigureSave == 0 || engine.frame - lastFigureSave >= 50 else { return }
         saveFigure()
     }
