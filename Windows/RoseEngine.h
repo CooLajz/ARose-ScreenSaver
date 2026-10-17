@@ -13,9 +13,10 @@ namespace arose {
 struct Point { int x = 0, y = 0; };
 struct ModernPoint { double x, y, hue; };
 struct Settings {
-    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0;
+    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0, resumeFigure = 0;
     void validate() {
         debugCPU = debugCPU == 1 ? 1 : 0;
+        resumeFigure = resumeFigure == 1 ? 1 : 0;
         appearance = std::clamp(appearance, 0, 1);
         speed = std::clamp(speed, 1, 5);
         const int lengths[] = {1, 4, 8, 12, 16, 20};
@@ -112,6 +113,43 @@ public:
             mode = tables::rotation[modeIndex + 1]; modeIndex = (modeIndex + 2) % tables::rotation.size(); modeCounter = 0;
         } else ++modeCounter;
         ++frame;
+    }
+    // Versioned field order shared with RoseEngine.swift; no raw struct serialization.
+    using FigureState = std::array<int64_t, 24>;
+    FigureState savedFigure() const {
+        return {1, static_cast<int64_t>(frame), radiusA, targetA, deltaA, radiusB, targetB, deltaB,
+            frequency, targetFrequency, deltaFrequency, rotation, mode, static_cast<int64_t>(modeIndex),
+            modeCounter, changed ? 1 : 0, static_cast<int64_t>(a.index), a.counter,
+            static_cast<int64_t>(b.index), b.counter, static_cast<int64_t>(f.index), f.counter,
+            tracks[0].angle, tracks[0].color};
+    }
+    bool restoreFigure(const FigureState& v) {
+        auto between=[](int64_t x,int64_t lo,int64_t hi) { return x>=lo && x<=hi; };
+        if(v[0]!=1 || !between(v[1],0,1000000000000LL)) return false;
+        for(int i:{2,3,5,6}) if(!between(v[i],-100000,100000)) return false;
+        for(int i:{8,9}) if(!between(v[i],-1000000,1000000)) return false;
+        for(int i:{4,7,10}) if(!between(v[i],-30,30)) return false;
+        if(!between(v[11],0,1439) || !between(v[12],0,2) ||
+           !between(v[13],0,static_cast<int64_t>(tables::rotation.size())-1) || v[13]%2 ||
+           !between(v[14],0,tables::rotation[static_cast<size_t>(v[13])]) ||
+           !between(v[15],0,1) || !between(v[22],0,1439) || !between(v[23],0,95)) return false;
+        const std::vector<int>* sequences[]={&tables::radiusA,&tables::radiusB,&tables::frequency};
+        for(int n=0;n<3;++n) {
+            int i=16+2*n; const auto& table=*sequences[n];
+            if(!between(v[i],0,static_cast<int64_t>(table.size())-1) || v[i]%3 ||
+               !between(v[i+1],0,table[static_cast<size_t>(v[i])])) return false;
+        }
+        frame=static_cast<uint64_t>(v[1]); radiusA=int(v[2]); targetA=int(v[3]); deltaA=int(v[4]);
+        radiusB=int(v[5]); targetB=int(v[6]); deltaB=int(v[7]);
+        frequency=int(v[8]); targetFrequency=int(v[9]); deltaFrequency=int(v[10]);
+        rotation=int(v[11]); mode=int(v[12]); modeIndex=static_cast<size_t>(v[13]); modeCounter=int(v[14]); changed=v[15]==1;
+        a.index=static_cast<size_t>(v[16]); a.counter=int(v[17]); b.index=static_cast<size_t>(v[18]); b.counter=int(v[19]);
+        f.index=static_cast<size_t>(v[20]); f.counter=int(v[21]);
+        for(size_t i=0;i<tracks.size();++i) {
+            tracks[i].angle=wrap(int(v[22])+tracks[i].base); tracks[i].color=(int(v[23])+int(i))%96; tracks[i].history={};
+        }
+        slot=0; std::fill(pixels.begin(),pixels.end(),0); modernHistory.clear();
+        return true;
     }
     static std::array<uint32_t, 256> palette(int mode) {
         std::array<uint32_t, 256> colors{};

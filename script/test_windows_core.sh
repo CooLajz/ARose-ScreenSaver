@@ -12,3 +12,8 @@ xcrun swiftc -O -module-cache-path .build/ModuleCache Sources/Core/*.swift Tests
 .build/parity/swift-engine > .build/parity/swift.txt
 python3 script/check_engine_parity.py --actual .build/parity/cpp.txt --reference .build/parity/swift.txt
 python3 script/check_engine_parity.py --actual .build/parity/cpp.txt
+
+clang++ -std=c++17 -O2 -Wall -Wextra -Werror -ffp-contract=off Tests/FigureState/main.cpp -o .build/parity/windows-figure
+.build/parity/windows-figure
+xcrun swiftc -O -module-cache-path .build/ModuleCache Sources/Core/*.swift Tests/FigureState/main.swift -o .build/parity/swift-figure
+.build/parity/swift-figure

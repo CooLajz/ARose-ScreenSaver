@@ -46,3 +46,5 @@
 "1 core" = "1 jádro";
 "All cores" = "Všechna jádra";
 "CPU normalization explanation" = "CPU čas procesu: u první hodnoty odpovídá 100 % jednomu logickému jádru, u druhé všem logickým jádrům.";
+
+"Resume from last figure" = "Pokračovat od posledního obrazce";

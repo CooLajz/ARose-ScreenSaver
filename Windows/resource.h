@@ -15,3 +15,5 @@
 #define IDC_NOTE 1016
 
 #define IDC_DEBUG_CPU 1017
+
+#define IDC_RESUME_FIGURE 1018

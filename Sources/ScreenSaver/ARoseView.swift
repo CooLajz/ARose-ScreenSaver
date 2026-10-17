@@ -51,7 +51,7 @@ final class RoseCPUMeter {
 
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
-    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false]
+    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false]
     private(set) var engine = RoseEngine()
     private var lastTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
@@ -77,6 +77,11 @@ final class ARoseView: ScreenSaverView {
     private var modernColors = [Int: [PointColors]]()
     private var loadedConfiguration = [Double]()
     private let defaults: UserDefaults
+    // The standalone preview uses a separate bookmark from the system saver.
+    var figureStorageKey = "figureState.v1"
+    private static weak var figureWriter: ARoseView?
+    private var figureSession = false
+    private var lastFigureSave = 0
     var paused = false
     var configurationSaved: (() -> Void)?
 
@@ -104,21 +109,45 @@ final class ARoseView: ScreenSaverView {
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     private func configuration() -> [Double] {
-        ["appearance", "speed", "tail", "palette", "glow", "debugCPU"].map { defaults.double(forKey: $0) }
+        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
         defaults.synchronize()
         if configuration() != loadedConfiguration { reset() }
+        if !isPreview && !figureSession {
+            if Self.figureWriter == nil { Self.figureWriter = self }
+            figureSession = true
+            if defaults.bool(forKey: "resumeFigure"), let state = defaults.array(forKey: figureStorageKey) as? [Int] {
+                engine.restoreFigure(state)
+            }
+            lastFigureSave = engine.frame
+        }
         lastTime = 0; accumulator = 0
         cpuMeter = RoseCPUMeter()
         super.startAnimation()
     }
+    func saveFigure() {
+        guard figureSession, !isPreview, Self.figureWriter === self,
+              defaults.bool(forKey: "resumeFigure"), engine.frame > 0 else { return }
+        defaults.set(engine.savedFigure(), forKey: figureStorageKey)
+        defaults.synchronize()
+        lastFigureSave = engine.frame
+    }
     override func stopAnimation() {
+        saveFigure()
+        figureSession = false
+        if Self.figureWriter === self { Self.figureWriter = nil }
         super.stopAnimation()
         lastTime = 0; accumulator = 0
     }
+    func applyConfiguration() {
+        let state = defaults.bool(forKey: "resumeFigure") ? engine.savedFigure() : nil
+        reset()
+        if let state { engine.restoreFigure(state) }
+    }
     func reset() {
         loadedConfiguration = configuration()
+        lastFigureSave = 0
         debugCPU = defaults.bool(forKey: "debugCPU")
         cpuMeter = RoseCPUMeter()
         modernColors.removeAll(keepingCapacity: true)
@@ -155,7 +184,10 @@ final class ARoseView: ScreenSaverView {
             lastTime = ProcessInfo.processInfo.systemUptime
             return
         }
-        defer { lastTime = now }
+        defer {
+            lastTime = now
+            if engine.frame - lastFigureSave >= 1500 { saveFigure() }
+        }
         // Preserve PAL pacing even on 60/120 Hz displays; discard time spent asleep.
         accumulator += min(0.1, max(0, now - lastTime))
         let previousFrame = engine.frame
@@ -354,7 +386,7 @@ final class ARoseView: ScreenSaverView {
             return options.window
         }
         options = RoseOptions(defaults: defaults) { [weak self] in
-            self?.reset()
+            self?.applyConfiguration()
             self?.configurationSaved?()
         }
         options?.reload()
@@ -368,7 +400,7 @@ final class ARoseView: ScreenSaverView {
 enum RoseSettingsBridge {
     static let request = Notification.Name("cz.coolajz.ARose.settings.request")
     static let response = Notification.Name("cz.coolajz.ARose.settings.response")
-    static let keys = ["appearance", "speed", "tail", "palette", "glow", "debugCPU"]
+    static let keys = ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure"]
     static let views = NSHashTable<ARoseView>.weakObjects()
     static var observer: NSObjectProtocol?
 
@@ -392,7 +424,8 @@ enum RoseSettingsBridge {
                   [1.0, 4, 8, 12, 16, 20].contains(values["tail"]!),
                   [0.0, 1, 2].contains(values["palette"]!),
                   (0...1).contains(values["glow"]!),
-                  [0.0, 1.0].contains(values["debugCPU"]!) else { return nil }
+                  [0.0, 1.0].contains(values["debugCPU"]!),
+                  [0.0, 1.0].contains(values["resumeFigure"]!) else { return nil }
         }
         return message
     }
@@ -410,7 +443,7 @@ enum RoseSettingsBridge {
             if let values = message.values {
                 for (key, value) in values { defaults.set(value, forKey: key) }
                 guard defaults.synchronize() else { return }
-                for view in views.allObjects { view.reset() }
+                for view in views.allObjects { view.applyConfiguration() }
                 configurationLog.notice("Settings received from preview and synchronized")
             }
             guard let reply = encode(Message(id: message.id, values: snapshot(defaults))) else { return }
@@ -427,6 +460,7 @@ final class RoseOptions: NSObject {
     private let speed = NSPopUpButton(), tail = NSPopUpButton(), palette = NSPopUpButton()
     private let appearance = NSPopUpButton()
     private let debugCPU = NSButton(checkboxWithTitle: roseText("Debug: show process CPU usage"), target: nil, action: nil)
+    private let resumeFigure = NSButton(checkboxWithTitle: roseText("Resume from last figure"), target: nil, action: nil)
     private var originalPalette = 2
     private let glowSlider = NSSlider(value: 0, minValue: 0, maxValue: 100, target: nil, action: nil)
     private let glowValue = NSTextField(labelWithString: roseText("Off"))
@@ -435,13 +469,13 @@ final class RoseOptions: NSObject {
 
     init(defaults: UserDefaults, apply: @escaping () -> Void) {
         self.defaults = defaults; self.apply = apply
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 450),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
                           styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
         // Retain the window for this presentation; subsequent requests get fresh content.
         window.isReleasedWhenClosed = false
         let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 450))
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 480))
         window.contentViewController = content
         window.title = roseText("ARose Settings")
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
@@ -470,6 +504,7 @@ final class RoseOptions: NSObject {
         glowValue.widthAnchor.constraint(equalToConstant: 72).isActive = true
         stack.addArrangedSubview(NSStackView(views: [glowLabel, glowSlider, glowValue]))
         debugCPU.toolTip = roseText("CPU normalization explanation")
+        stack.addArrangedSubview(resumeFigure)
         stack.addArrangedSubview(debugCPU)
         let cancel = NSButton(title: roseText("Cancel"), target: self, action: #selector(cancelAction))
         let save = NSButton(title: roseText("Save"), target: self, action: #selector(saveAction))
@@ -489,6 +524,7 @@ final class RoseOptions: NSObject {
         appearance.selectItem(at: defaults.integer(forKey: "appearance") == 1 ? 1 : 0)
         let storedGlow = defaults.double(forKey: "glow")
         glowSlider.doubleValue = storedGlow.isFinite ? min(100, max(0, storedGlow * 100)) : 0
+        resumeFigure.state = defaults.bool(forKey: "resumeFigure") ? .on : .off
         debugCPU.state = defaults.bool(forKey: "debugCPU") ? .on : .off
         glowChanged()
         updatePalette()
@@ -523,6 +559,7 @@ final class RoseOptions: NSObject {
         dismiss()
     }
     @objc private func saveAction() {
+        defaults.set(resumeFigure.state == .on, forKey: "resumeFigure")
         defaults.set(debugCPU.state == .on, forKey: "debugCPU")
         defaults.set(speed.indexOfSelectedItem + 1, forKey: "speed")
         defaults.set(tailValues[tail.indexOfSelectedItem], forKey: "tail")

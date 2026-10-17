@@ -47,9 +47,9 @@ void chooseLanguage() {
     }
 }
 void loadSettings() {
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU"};
-    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU};
-    for (int i = 0; i < 6; ++i) {
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure"};
+    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU, &settings.resumeFigure};
+    for (int i = 0; i < 7; ++i) {
         DWORD value = 0, bytes = sizeof value;
         if (RegGetValueW(HKEY_CURRENT_USER, settingsKey, names[i], RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value <= INT_MAX)
             *values[i] = static_cast<int>(value);
@@ -59,14 +59,32 @@ void loadSettings() {
 bool saveSettings(const Settings& s) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, settingsKey, 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) return false;
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU"};
-    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU};
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure"};
+    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU, s.resumeFigure};
     bool success = true;
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 7; ++i) {
         DWORD v = static_cast<DWORD>(values[i]);
         success = (RegSetValueExW(key, names[i], 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v) == ERROR_SUCCESS) && success;
     }
     RegCloseKey(key); return success;
+}
+uint64_t lastFigureSave = 0;
+const wchar_t* figureValue() { return windowed ? L"PreviewFigureV1" : L"FigureV1"; }
+void loadFigure() {
+    if(preview || smoke || !settings.resumeFigure) return;
+    Engine::FigureState state{};
+    DWORD bytes=sizeof state;
+    if(RegGetValueW(HKEY_CURRENT_USER,settingsKey,figureValue(),RRF_RT_REG_BINARY,nullptr,state.data(),&bytes)==ERROR_SUCCESS && bytes==sizeof state)
+        engine->restoreFigure(state);
+    lastFigureSave=engine->frame;
+}
+void saveFigure() {
+    if(preview || smoke || !settings.resumeFigure || !engine || !engine->frame) return;
+    HKEY key=nullptr;
+    if(RegCreateKeyExW(HKEY_CURRENT_USER,settingsKey,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS) return;
+    auto state=engine->savedFigure();
+    RegSetValueExW(key,figureValue(),0,REG_BINARY,reinterpret_cast<const BYTE*>(state.data()),sizeof state);
+    RegCloseKey(key); lastFigureSave=engine->frame;
 }
 struct CPUMeter {
     ULONGLONG wall = 0, cpu = 0;
@@ -86,7 +104,7 @@ struct CPUMeter {
         wall=now; cpu=total;
     }
 } cpuMeter;
-void resetEngine() { animationReady = false; cpuMeter = {}; engine = std::make_unique<Engine>(); engine->settings = settings; lastStep = AnimationClock::now(); frameTiming = {}; previousHistory.clear(); }
+void resetEngine() { lastFigureSave = 0; animationReady = false; cpuMeter = {}; engine = std::make_unique<Engine>(); engine->settings = settings; lastStep = AnimationClock::now(); frameTiming = {}; previousHistory.clear(); }
 int selection(HWND d, int id) { return static_cast<int>(SendDlgItemMessageW(d, id, CB_GETCURSEL, 0, 0)); }
 void updateDialog(HWND d) {
     bool modern = selection(d, IDC_STYLE) == 1;
@@ -122,6 +140,8 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(d,IDC_GLOW,TBM_SETPOS,TRUE,settings.glow);
         SetDlgItemTextW(d,IDC_DEBUG_CPU,tr(L"Debug: show process CPU usage",L"Debug: zobrazovat vytížení procesu"));
         CheckDlgButton(d,IDC_DEBUG_CPU,settings.debugCPU?BST_CHECKED:BST_UNCHECKED);
+        SetDlgItemTextW(d,IDC_RESUME_FIGURE,tr(L"Resume from last figure",L"Pokračovat od posledního obrazce"));
+        CheckDlgButton(d,IDC_RESUME_FIGURE,settings.resumeFigure?BST_CHECKED:BST_UNCHECKED);
         updateDialog(d); return TRUE;
     }
     if(msg==WM_HSCROLL) { updateDialog(d); return TRUE; }
@@ -130,6 +150,7 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         if(LOWORD(wp)==IDCANCEL) { EndDialog(d,IDCANCEL); return TRUE; }
         if(LOWORD(wp)==IDOK) {
             Settings s = settings;
+            s.resumeFigure=IsDlgButtonChecked(d,IDC_RESUME_FIGURE)==BST_CHECKED?1:0;
             s.debugCPU=IsDlgButtonChecked(d,IDC_DEBUG_CPU)==BST_CHECKED?1:0;
             s.appearance=selection(d,IDC_STYLE); s.speed=selection(d,IDC_SPEED)+1;
             int index=selection(d,IDC_TRAIL); s.tail=lengths[std::clamp(index,0,5)];
@@ -270,7 +291,7 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
     case WM_KEYDOWN: case WM_SYSKEYDOWN:
         if(preview) return 0;
         if(windowed) {
-            if(wp==VK_F1) { paused=true; showSettings(w); resetEngine(); paused=false; }
+            if(wp==VK_F1) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(settings.resumeFigure) engine->restoreFigure(state); paused=false; }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }
             if(wp=='R') resetEngine();
             if(wp==VK_ESCAPE) PostQuitMessage(0);
@@ -318,7 +339,7 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     if(mode!=L's' && !preview && !windowed) return 2;
     if(preview && !IsWindow(parent)) return 2;
     if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,&factory))) return 1;
-    resetEngine(); started=GetTickCount64(); GetCursorPos(&initialMouse);
+    resetEngine(); loadFigure(); started=GetTickCount64(); GetCursorPos(&initialMouse);
     WNDCLASSW cls{}; cls.hInstance=instance; cls.lpfnWndProc=windowProc; cls.lpszClassName=L"ARoseScreenSaver";
     cls.hCursor=LoadCursorW(nullptr,IDC_ARROW); cls.hIcon=LoadIconW(instance,MAKEINTRESOURCEW(IDI_AROSE));
     if(!RegisterClassW(&cls)) { release(factory); return 1; }
@@ -368,6 +389,7 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
                 engine->step();
             }
         }
+        if(engine->frame >= lastFigureSave && engine->frame-lastFigureSave>=1500) saveFigure();
         bool visible=false;
         for(HWND w:windows) {
             if(IsWindowVisible(w) && !IsIconic(w)) {
@@ -382,6 +404,7 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
         if(FAILED(flushed) || AnimationClock::now()-beforeFlush<std::chrono::milliseconds(1))
             MsgWaitForMultipleObjectsEx(0,nullptr,visible?8:100,QS_ALLINPUT,MWMO_INPUTAVAILABLE);
     }
+    saveFigure();
     for(HWND w:windows) if(IsWindow(w)) DestroyWindow(w);
     release(factory);
     return exitCode;

@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.minSize = NSSize(width: 400, height: 320)
         window.collectionBehavior = [.fullScreenPrimary]
         rose = ARoseView(frame: window.contentView!.bounds, isPreview: false)!
+        rose.figureStorageKey = "previewFigureState.v1"
+        rose.startAnimation()
         rose.configurationSaved = { [weak self] in
             // Let the local sheet finish before showing the transfer result.
             DispatchQueue.main.async { self?.sendSettings() }
@@ -52,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   let defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose") else { return }
             for (key, value) in values { defaults.set(value, forKey: key) }
             defaults.synchronize()
-            self.rose.reset()
+            self.rose.applyConfiguration()
             self.showSettings()
         }
         if let payload = RoseSettingsBridge.encode(.init(id: id, values: nil)) {
@@ -106,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func advance() { for _ in 0..<500 { rose.engine.step() }; rose.needsDisplay = true }
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-    func applicationWillTerminate(_ notification: Notification) { timer?.invalidate() }
+    func applicationWillTerminate(_ notification: Notification) { timer?.invalidate(); rose.stopAnimation() }
 }
 let app = NSApplication.shared
 let delegate = AppDelegate()

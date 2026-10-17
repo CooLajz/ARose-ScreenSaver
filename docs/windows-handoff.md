@@ -3,7 +3,7 @@
 ## Baseline prepared on macOS, 17 October 2026
 
 The Windows renderer remains Direct2D. No new graphics API, shader, external
-runtime, elevation requirement or setting has been introduced. The Windows
+runtime or elevation requirement has been introduced. The Windows
 changes are independent of the Mac's full Metal renderer.
 
 - `Windows/PreparedFrame.h` prepares interpolation, pixel positions, age opacity
@@ -80,3 +80,19 @@ project. New contributions alone have the selected MIT license. Follow
 [release preparation](releases.md) for remote/upstream setup, signing, CI and
 platform-specific download assets. Preserve the distinction between a locally
 built candidate and a Windows-tested/publicly signed release.
+
+## Saved-figure continuation
+
+The optional `Resume from last figure` setting defaults to off. `FigureV1` in
+`HKCU\Software\CooLajz\ARose` stores a versioned array of 24 signed 64-bit values
+in a single registry value on exit and every 1,500 simulation steps. `/w` uses
+`PreviewFigureV1`; `/p` and `/t` never read or write bookmarks. The shape and color
+phase resume exactly, while the trail rebuilds over up to 20 steps.
+
+Portable tests compare 1,000 subsequent steps after restoration in both modes,
+including point/color identity, retro pixels after trail warm-up and invalid
+state rejection. The updated Windows executable cross-compiles on macOS.
+On Windows, additionally verify `/s` exit/restart, persistence across reboot,
+checkbox save/cancel, `/p` isolation, the separate `/w` bookmark, and a forced
+termination after 30 seconds. Registry persistence and the dialog still need
+native Windows runtime verification.

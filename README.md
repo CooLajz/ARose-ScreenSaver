@@ -96,3 +96,15 @@ preview app, then reopen System Settings to load the new preference schema.
 Modern mode renders both glow and sharp points through Metal on supported Macs, including when glow is off. A small precomputed coverage texture preserves Core Graphics antialiasing of fine points. Unavailable Metal falls back to CPU rendering. Image differences and benchmark limits are documented in [performance notes](docs/performance.md).
 
 Windows preparation optimizations and remaining native runtime checks are recorded in the [Windows continuation guide](docs/windows-handoff.md). They do not establish a measured performance gain on Windows.
+
+## Resume from last figure
+
+Enable **Resume from last figure** to continue the pattern, rotation and color
+phase on the next run, including after restarting the computer. This option is
+off by default and works in both styles. State is saved on normal exit and every
+30 seconds of animation; a forced termination can lose the latest interval.
+Trails rebuild over the first 0.4 seconds rather than being stored as an image.
+The embedded settings preview never updates the saved position. The standalone
+macOS preview and Windows `/w` window keep their own separate position. Disabling
+the option ignores the bookmark without deleting it. Invalid or unsupported
+saved states are ignored. No files are sent over the network.

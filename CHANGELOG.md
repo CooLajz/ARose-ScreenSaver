@@ -2,6 +2,11 @@
 
 ## Unreleased — public distribution preparation
 
+- Add optional saved-figure continuation on macOS and Windows, with CS/EN
+  settings, versioned validated state and 30-second checkpoints. Isolate
+  standalone preview bookmarks and exclude embedded previews. Test exact
+  simulation continuation and macOS saver lifecycle without changing rendering.
+
 - Prepare Windows interpolated point data once for both rendering passes with
   fixed-capacity storage; cache retro palettes and initialize glow brushes before
   starting the animation clock. Keep Direct2D drawing and blending unchanged.

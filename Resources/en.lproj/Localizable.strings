@@ -46,3 +46,5 @@
 "1 core" = "1 core";
 "All cores" = "All cores";
 "CPU normalization explanation" = "Process CPU time: 100% equals one logical core in the first value, all logical cores in the second.";
+
+"Resume from last figure" = "Resume from last figure";

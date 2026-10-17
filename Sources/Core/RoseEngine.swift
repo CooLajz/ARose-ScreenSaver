@@ -121,6 +121,43 @@ final class RoseEngine {
         frame += 1
     }
 
+    // Versioned mathematical state; trails rebuild without replaying elapsed frames.
+    // Shared field order with the Windows engine. Never persist trig tables or pixels.
+    func savedFigure() -> [Int] {
+        [1, frame, radiusA, targetA, deltaA, radiusB, targetB, deltaB,
+         frequency, targetFrequency, deltaFrequency, rotation, mode, modeIndex,
+         modeCounter, changed ? 1 : 0, a.index, a.counter, b.index, b.counter,
+         f.index, f.counter, tracks[0].angle, tracks[0].color]
+    }
+    @discardableResult func restoreFigure(_ v: [Int]) -> Bool {
+        guard v.count == 24, v[0] == 1, (0...1_000_000_000_000).contains(v[1]),
+              [2, 3, 5, 6].allSatisfy({ (-100_000...100_000).contains(v[$0]) }),
+              [8, 9].allSatisfy({ (-1_000_000...1_000_000).contains(v[$0]) }),
+              [4, 7, 10].allSatisfy({ (-30...30).contains(v[$0]) }),
+              (0..<1440).contains(v[11]), (0...2).contains(v[12]),
+              (0..<RoseTables.rotation.count).contains(v[13]), v[13] % 2 == 0,
+              (0...RoseTables.rotation[v[13]]).contains(v[14]),
+              (0...1).contains(v[15]), (0..<1440).contains(v[22]),
+              (0..<96).contains(v[23]) else { return false }
+        for (offset, table) in [(16, RoseTables.radiusA), (18, RoseTables.radiusB), (20, RoseTables.frequency)] {
+            guard table.indices.contains(v[offset]), v[offset] % 3 == 0,
+                  (0...table[v[offset]]).contains(v[offset + 1]) else { return false }
+        }
+        frame = v[1]; radiusA = v[2]; targetA = v[3]; deltaA = v[4]
+        radiusB = v[5]; targetB = v[6]; deltaB = v[7]
+        frequency = v[8]; targetFrequency = v[9]; deltaFrequency = v[10]
+        rotation = v[11]; mode = v[12]; modeIndex = v[13]; modeCounter = v[14]; changed = v[15] == 1
+        a.index = v[16]; a.counter = v[17]; b.index = v[18]; b.counter = v[19]; f.index = v[20]; f.counter = v[21]
+        for i in tracks.indices {
+            tracks[i].angle = wrap(v[22] + tracks[i].base)
+            tracks[i].color = (v[23] + i) % 96
+            tracks[i].history = Array(repeating: Point(), count: 20)
+        }
+        slot = 0; pixels = [UInt8](repeating: 0, count: Self.width * Self.height)
+        modernHistory.removeAll()
+        return true
+    }
+
     static func palette(mode: Int) -> [UInt8] {
         var colors = [UInt8](repeating: 0, count: 256 * 3)
         if mode == 0 { colors[3...5] = [255,255,255]; return colors }
