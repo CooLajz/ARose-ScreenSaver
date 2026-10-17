@@ -42,6 +42,11 @@ Build logs are in `.build/build.log`. Clean installation archives are in `dist/`
 
 ## Windows build and installation
 
+The native Windows build can be built and tested with `./script/build_windows.ps1`.
+Modern mode uses batched Direct3D 11 GPU drawing, with Direct2D fallback; the CPU
+debug overlay identifies the renderer. See [Windows performance notes](docs/windows-performance.md)
+for repeatable comparisons and measured image differences.
+
 See the [release guide](docs/releases.md) for Visual Studio/CMake build commands.
 The Windows port includes `/s` full-screen mode, `/c` settings, `/p` embedded
 system preview and `/w` an interactive window. The default style, glow and trail
@@ -95,7 +100,7 @@ preview app, then reopen System Settings to load the new preference schema.
 
 Modern mode renders both glow and sharp points through Metal on supported Macs, including when glow is off. A small precomputed coverage texture preserves Core Graphics antialiasing of fine points. Unavailable Metal falls back to CPU rendering. Image differences and benchmark limits are documented in [performance notes](docs/performance.md).
 
-Windows preparation optimizations and remaining native runtime checks are recorded in the [Windows continuation guide](docs/windows-handoff.md). They do not establish a measured performance gain on Windows.
+Windows GPU measurements and remaining native runtime checks are recorded in the [Windows continuation guide](docs/windows-handoff.md) and [performance notes](docs/windows-performance.md).
 
 ## Resume from last figure
 

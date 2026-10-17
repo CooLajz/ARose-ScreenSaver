@@ -15,12 +15,18 @@
 #include "FrameTiming.h"
 #include "PreparedFrame.h"
 #include "resource.h"
+#include "Benchmark.h"
+#include "ModernDrawing.h"
+#include "GpuDrawing.h"
 
 namespace {
 using namespace arose;
 HINSTANCE instance;
 bool czech = false, preview = false, windowed = false, paused = false, smoke = false;
 Settings settings;
+Benchmark benchmark;
+bool referenceRenderer=false;
+bool cachedHaloRenderer=false,forceGpuRenderer=false;
 std::unique_ptr<Engine> engine;
 ID2D1Factory* factory = nullptr;
 std::vector<HWND> windows;
@@ -196,55 +202,62 @@ void showSettings(HWND parent) {
     if(DialogBoxParamW(instance,MAKEINTRESOURCEW(IDD_SETTINGS),parent,settingsProc,0)==-1)
         MessageBoxW(parent,tr(L"Unable to open ARose settings.",L"Nastavení ARose se nepodařilo otevřít."),L"ARose",MB_OK|MB_ICONERROR);
 }
-D2D1_COLOR_F rainbow(double hue, float saturation, float alpha = 1) {
-    double h = hue * 6; int sector = static_cast<int>(h) % 6; float f=static_cast<float>(h-std::floor(h));
-    float p=1-saturation,q=1-f*saturation,t=1-(1-f)*saturation;
-    const float c[6][3]={{1,t,p},{q,1,p},{p,1,t},{p,q,1},{t,p,1},{1,p,q}};
-    return D2D1::ColorF(c[sector][0],c[sector][1],c[sector][2],alpha);
-}
 struct Renderer {
     ID2D1HwndRenderTarget* target=nullptr;
     ID2D1SolidColorBrush* brush=nullptr;
     ID2D1Bitmap* bitmap=nullptr;
     IDWriteFactory* textFactory=nullptr;
     IDWriteTextFormat* textFormat=nullptr;
-    std::array<ID2D1RadialGradientBrush*,256> halos{};
-    bool halosReady = false;
+    ModernDrawing modern;
+    std::unique_ptr<GpuDrawing> gpu;
+    bool gpuFailed=false;
+    bool hardware=false;
     PreparedFrame prepared;
     int cachedPalette = -1;
     std::array<uint32_t, 256> paletteColors{};
     std::vector<uint32_t> rgba = std::vector<uint32_t>(800*600);
     ~Renderer(){ discard(); release(textFormat); release(textFactory); }
-    void discard() { halosReady=false; for(auto& h:halos) release(h); release(bitmap); release(brush); release(target); }
+    void discardD2D() { modern.discard(); release(bitmap); release(brush); release(target); }
+    void discard() { gpu.reset(); discardD2D(); }
     bool create(HWND w) {
         if(target) return true;
         RECT r; GetClientRect(w,&r);
         auto properties=D2D1::RenderTargetProperties(); properties.dpiX=properties.dpiY=96;
+        properties.type=benchmark.enabled?benchmark.requested:D2D1_RENDER_TARGET_TYPE_HARDWARE;
         HRESULT hr=factory->CreateHwndRenderTarget(properties,D2D1::HwndRenderTargetProperties(w,D2D1::SizeU(std::max(1L,r.right),std::max(1L,r.bottom)),D2D1_PRESENT_OPTIONS_IMMEDIATELY),&target);
+        hardware=SUCCEEDED(hr) && properties.type==D2D1_RENDER_TARGET_TYPE_HARDWARE;
+        if(FAILED(hr) && !benchmark.enabled) {
+            release(target); properties.type=D2D1_RENDER_TARGET_TYPE_SOFTWARE;
+            hr=factory->CreateHwndRenderTarget(properties,D2D1::HwndRenderTargetProperties(w,D2D1::SizeU(std::max(1L,r.right),std::max(1L,r.bottom)),D2D1_PRESENT_OPTIONS_IMMEDIATELY),&target);
+        }
         if(SUCCEEDED(hr)) hr=target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),&brush);
         if(SUCCEEDED(hr)) hr=target->CreateBitmap(D2D1::SizeU(800,600),nullptr,0,D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_IGNORE)),&bitmap);
         if(FAILED(hr)) { discard(); return false; }
         return true;
     }
-    ID2D1RadialGradientBrush* halo(size_t index) {
-        if(halos[index]) return halos[index];
-        auto color=rainbow(double(index)/256,0.9f);
-        D2D1_GRADIENT_STOP stops[4]={{0,color},{0.2f,color},{0.55f,color},{1,color}};
-        stops[0].color.a=0.85f; stops[1].color.a=0.48f; stops[2].color.a=0.12f; stops[3].color.a=0;
-        ID2D1GradientStopCollection* collection=nullptr;
-        HRESULT hr=target->CreateGradientStopCollection(stops,4,&collection);
-        if(SUCCEEDED(hr)) hr=target->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F(),D2D1::Point2F(),1,1),collection,&halos[index]);
-        release(collection); return SUCCEEDED(hr)?halos[index]:nullptr;
-    }
     bool prepareResources(HWND w) {
+        const bool preferGpu=settings.appearance==1 && !referenceRenderer && !cachedHaloRenderer &&
+            !(benchmark.enabled && benchmark.requested==D2D1_RENDER_TARGET_TYPE_SOFTWARE);
+        if(preferGpu && !gpuFailed) {
+            if(target) discardD2D();
+            if(!gpu) gpu=std::make_unique<GpuDrawing>();
+            RECT rect{}; GetClientRect(w,&rect);
+            UINT width=static_cast<UINT>(std::max(1L,rect.right)),height=static_cast<UINT>(std::max(1L,rect.bottom));
+            float diameter=ModernDrawing::diameter(float(width),float(height),static_cast<float>(GetDpiForWindow(w))/96);
+            if(gpu->prepare(w,width,height,diameter,static_cast<float>(settings.glow)/100)) return true;
+            gpu.reset(); gpuFailed=true;
+            if(benchmark.enabled && forceGpuRenderer) return false;
+        }
+        if(gpu) gpu.reset();
         if(!create(w)) return false;
-        if(settings.appearance==1 && settings.glow>0 && !halosReady) {
-            for(size_t i=0; i<halos.size(); ++i) if(!halo(i)) return false;
-            halosReady=true;
+        if(settings.appearance==1) {
+            auto size=target->GetSize();
+            const float diameter=ModernDrawing::diameter(size.width,size.height,static_cast<float>(GetDpiForWindow(w))/96);
+            if(!modern.prepare(target,diameter,static_cast<float>(settings.glow)/100,!referenceRenderer)) return false;
         }
         return true;
     }
-    void drawCPU(HWND w) {
+    void drawCPU(HWND w,ID2D1RenderTarget* surface,ID2D1SolidColorBrush* ink,const wchar_t* rendererName) {
         cpuMeter.sample();
         if(!textFactory && FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(&textFactory)))) return;
         if(!textFormat && FAILED(textFactory->CreateTextFormat(L"Consolas",nullptr,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,12,L"en-us",&textFormat))) return;
@@ -252,20 +265,50 @@ struct Renderer {
         if(cpuMeter.percent>=0) swprintf(value,160,L"%ls: %.1f %%  |  %ls: %.1f %%",
             tr(L"1 core",L"1 jádro"),cpuMeter.singleCorePercent,tr(L"All cores",L"Všechna jádra"),cpuMeter.percent);
         else swprintf(value,160,L"%ls: —  |  %ls: —",tr(L"1 core",L"1 jádro"),tr(L"All cores",L"Všechna jádra"));
-        std::wstring text=std::wstring(tr(L"Process CPU",L"CPU procesu"))+L"\n"+value;
+        std::wstring text=std::wstring(rendererName)+L" · "+tr(L"Process CPU",L"CPU procesu")+L"\n"+value;
         float dpi=static_cast<float>(GetDpiForWindow(w))/96;
-        auto size=target->GetSize();
-        target->SetTransform(D2D1::Matrix3x2F::Scale(dpi,dpi));
+        auto size=surface->GetSize();
+        surface->SetTransform(D2D1::Matrix3x2F::Scale(dpi,dpi));
         float right=size.width/dpi-10, bottom=size.height/dpi-10;
         auto box=D2D1::RectF(std::max(0.0f,right-390),std::max(0.0f,bottom-42),right,bottom);
-        brush->SetColor(D2D1::ColorF(0,0,0,0.8f)); target->FillRectangle(box,brush);
+        ink->SetColor(D2D1::ColorF(0,0,0,0.8f)); surface->FillRectangle(box,ink);
         box.left+=7; box.top+=5; box.right-=7;
-        brush->SetColor(D2D1::ColorF(D2D1::ColorF::White));
-        target->DrawText(text.c_str(),static_cast<UINT32>(text.size()),textFormat,box,brush,D2D1_DRAW_TEXT_OPTIONS_CLIP);
-        target->SetTransform(D2D1::Matrix3x2F::Identity());
+        ink->SetColor(D2D1::ColorF(D2D1::ColorF::White));
+        surface->DrawText(text.c_str(),static_cast<UINT32>(text.size()),textFormat,box,ink,D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        surface->SetTransform(D2D1::Matrix3x2F::Identity());
     }
     void draw(HWND w) {
-        if(!prepareResources(w)) { if(smoke) PostQuitMessage(1); return; }
+        if(!prepareResources(w)) { if(smoke || benchmark.enabled) PostQuitMessage(1); return; }
+        if(gpu) {
+            {
+                BenchmarkSample sample(benchmark.enabled?&benchmark.prepare:nullptr);
+                prepared.prepare(engine->modernHistory,previousHistory,frameTiming.alpha(),float(gpu->pixelWidth()),float(gpu->pixelHeight()));
+            }
+            bool success;
+            {
+                BenchmarkSample sample(benchmark.enabled?&benchmark.submit:nullptr);
+                success=gpu->draw(prepared,static_cast<float>(settings.glow)/100);
+                if(success && settings.debugCPU) {
+                    auto surface=gpu->beginOverlay();
+                    if(surface) { drawCPU(w,surface,gpu->overlayBrush(),L"Direct3D 11 GPU"); success=gpu->endOverlay(); }
+                    else success=false;
+                }
+            }
+            if(benchmark.enabled) {
+                benchmark.drawing="direct3d11"; benchmark.gpuBatchUsed=true; benchmark.drawCalls=gpu->calls();
+                benchmark.haloCacheUsed=settings.glow>0; benchmark.width=gpu->pixelWidth(); benchmark.height=gpu->pixelHeight(); benchmark.dpi=GetDpiForWindow(w);
+            }
+            if(success) {
+                BenchmarkSample sample(benchmark.enabled?&benchmark.present:nullptr);
+                success=gpu->present();
+            }
+            if(success) ++renderedFrames;
+            else {
+                gpu.reset(); gpuFailed=true; animationReady=false;
+                if(smoke || (benchmark.enabled && forceGpuRenderer)) PostQuitMessage(1);
+            }
+            return;
+        }
         const auto size=target->GetSize();
         target->BeginDraw(); target->Clear(D2D1::ColorF(D2D1::ColorF::Black));
         if(settings.appearance==0) {
@@ -277,36 +320,30 @@ struct Renderer {
             float scale=std::min(size.width/800,size.height/600),width=800*scale,height=600*scale;
             target->DrawBitmap(bitmap,D2D1::RectF((size.width-width)/2,(size.height-height)/2,(size.width+width)/2,(size.height+height)/2),1,D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
         } else {
-            float smaller=std::min(size.width,size.height);
             // Keep the original physical-pixel size and Direct2D rasterization.
             float dpi=static_cast<float>(GetDpiForWindow(w))/96;
-            float diameter=std::max(1.0f,std::min(1.8f*dpi,smaller/600));
+            float diameter=ModernDrawing::diameter(size.width,size.height,dpi);
             float glow=static_cast<float>(settings.glow)/100;
-            prepared.prepare(engine->modernHistory, previousHistory, frameTiming.alpha(), size.width, size.height);
-            if(glow>0) {
-                const float radius=diameter*(4+12*glow)/2;
-                for(size_t i=0; i<prepared.count; ++i) {
-                    const auto& p=prepared.points[i];
-                    auto center=D2D1::Point2F(p.x,p.y);
-                    auto h=halos[p.halo];
-                    h->SetCenter(center); h->SetRadiusX(radius); h->SetRadiusY(radius);
-                    h->SetOpacity(glow*p.strength*0.5f);
-                    target->FillEllipse(D2D1::Ellipse(center,radius,radius),h);
-                }
+            {
+                BenchmarkSample sample(benchmark.enabled?&benchmark.prepare:nullptr);
+                prepared.prepare(engine->modernHistory, previousHistory, frameTiming.alpha(), size.width, size.height);
             }
-            for(size_t i=0; i<prepared.count; ++i) {
-                const auto& p=prepared.points[i];
-                auto center=D2D1::Point2F(p.x,p.y);
-                brush->SetColor(rainbow(p.hue,0.9f,p.strength));
-                target->FillEllipse(D2D1::Ellipse(center,diameter/2,diameter/2),brush);
-                if(glow>0) {
-                    brush->SetColor(rainbow(p.hue,0.25f,p.strength*glow*0.8f));
-                    target->FillEllipse(D2D1::Ellipse(center,diameter*0.275f,diameter*0.275f),brush);
-                }
+            BenchmarkSample submission(benchmark.enabled?&benchmark.submit:nullptr);
+            modern.draw(target,brush,prepared,diameter,glow,!referenceRenderer);
+            if(benchmark.enabled) {
+                benchmark.drawing=referenceRenderer?"reference":"cached-halo"; benchmark.gpuBatchUsed=false;
+                benchmark.haloCacheUsed=modern.cached() && !referenceRenderer;
+                benchmark.width=static_cast<unsigned>(size.width); benchmark.height=static_cast<unsigned>(size.height);
+                benchmark.dpi=GetDpiForWindow(w);
             }
         }
-        if(settings.debugCPU) drawCPU(w);
-        if(FAILED(target->EndDraw())) { discard(); if(smoke) PostQuitMessage(1); }
+        if(settings.debugCPU) drawCPU(w,target,brush,hardware?L"Direct2D GPU":L"Direct2D software");
+        HRESULT drawResult;
+        {
+            BenchmarkSample sample(benchmark.enabled?&benchmark.present:nullptr);
+            drawResult=target->EndDraw();
+        }
+        if(FAILED(drawResult)) { discard(); if(smoke || benchmark.enabled) PostQuitMessage(1); }
         else ++renderedFrames;
     }
 };
@@ -322,7 +359,7 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
     case WM_KEYDOWN: case WM_SYSKEYDOWN:
         if(preview) return 0;
         if(windowed) {
-            if(wp==VK_F1) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state); paused=false; }
+            if(wp==VK_F1 && !benchmark.enabled) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state); paused=false; }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }
             if(wp=='R') resetEngine();
             if(wp==VK_ESCAPE) PostQuitMessage(0);
@@ -351,6 +388,12 @@ BOOL CALLBACK monitorProc(HMONITOR, HDC, LPRECT rect, LPARAM) { return addWindow
 }
 int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     instance=h; chooseLanguage(); loadSettings();
+    wchar_t rendererOverride[32]{};
+    GetEnvironmentVariableW(L"AROSE_WINDOWS_RENDERER",rendererOverride,32);
+    referenceRenderer=std::wstring(rendererOverride)==L"reference";
+    cachedHaloRenderer=std::wstring(rendererOverride)==L"cached-halo";
+    forceGpuRenderer=std::wstring(rendererOverride)==L"direct3d";
+    benchmark.drawing=referenceRenderer?"reference":cachedHaloRenderer?"cached-halo":"direct3d11";
     INITCOMMONCONTROLSEX controls{sizeof controls,ICC_BAR_CLASSES}; InitCommonControlsEx(&controls);
     int argc=0; LPWSTR* argv=CommandLineToArgvW(GetCommandLineW(),&argc);
     if(!argv) return 1;
@@ -363,10 +406,33 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
         std::wstring handle=arg.size()>3 && arg[2]==L':'?arg.substr(3):(argc>2?argv[2]:L"");
         if(!handle.empty()) { wchar_t* end=nullptr; auto n=wcstoull(handle.c_str(),&end,0); if(*end || handle[0]==L'-') valid=false; else parent=reinterpret_cast<HWND>(static_cast<UINT_PTR>(n)); }
     }
+    if(mode==L'b') {
+        valid=arg.size()==2 && argc>=3 && argc<=5;
+        if(valid) {
+            benchmark.enabled=true; benchmark.output=argv[2];
+            valid=!benchmark.output.empty() && !std::filesystem::exists(benchmark.output);
+            if(argc>=4) {
+                wchar_t* end=nullptr; auto duration=wcstoul(argv[3],&end,10);
+                valid=valid && end!=argv[3] && *end==0 && duration>=2 && duration<=600;
+                benchmark.seconds=static_cast<unsigned>(duration);
+            }
+            if(argc==5) {
+                const std::wstring backend=argv[4];
+                if(backend==L"hardware") { benchmark.requested=D2D1_RENDER_TARGET_TYPE_HARDWARE; benchmark.backend="hardware"; }
+                else if(backend==L"software") { benchmark.requested=D2D1_RENDER_TARGET_TYPE_SOFTWARE; benchmark.backend="software"; }
+                else if(backend!=L"default") valid=false;
+            }
+            settings=Settings{}; // Reproducible Modern / glow 80 / long trail.
+            wchar_t overlayOverride[2]{};
+            if(GetEnvironmentVariableW(L"AROSE_BENCHMARK_CPU_OVERLAY",overlayOverride,2)==1 && overlayOverride[0]==L'1') settings.debugCPU=1;
+            benchmark.cpuOverlay=settings.debugCPU!=0;
+        }
+    }
     LocalFree(argv);
     if(!valid) return 2;
     if(mode==L'c') { showSettings(IsWindow(parent)?parent:nullptr); return 0; }
-    preview=mode==L'p'; windowed=mode==L'w'||mode==L't'; smoke=mode==L't';
+    preview=mode==L'p'; windowed=mode==L'w'||mode==L't'||mode==L'b'; smoke=mode==L't';
+    if(smoke) settings=Settings{};
     if(mode!=L's' && !preview && !windowed) return 2;
     if(preview && !IsWindow(parent)) return 2;
     if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,&factory))) return 1;
@@ -375,27 +441,48 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     cls.hCursor=LoadCursorW(nullptr,IDC_ARROW); cls.hIcon=LoadIconW(instance,MAKEINTRESOURCEW(IDI_AROSE));
     if(!RegisterClassW(&cls)) { release(factory); return 1; }
     if(preview) { RECT r; GetClientRect(parent,&r); addWindow(r,parent); }
-    else if(windowed) { RECT r{100,100,1000,800}; addWindow(r); }
+    else if(windowed) {
+        RECT r{100,100,1000,800};
+        if(benchmark.enabled) {
+            r={0,0,1280,720}; AdjustWindowRectEx(&r,WS_OVERLAPPEDWINDOW,FALSE,0);
+            OffsetRect(&r,100-r.left,100-r.top);
+        }
+        addWindow(r);
+    }
     else EnumDisplayMonitors(nullptr,nullptr,monitorProc,0);
     if(windows.empty()) { release(factory); return 1; }
     MSG msg{};
     auto lastResetCheck=AnimationClock::now();
     bool running = true;
     int exitCode = 0;
+    unsigned smokeStage=0;
+    if(benchmark.enabled) benchmark.start();
     while(running) {
         while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)) {
             if(msg.message==WM_QUIT) { exitCode=static_cast<int>(msg.wParam); running=false; break; }
             TranslateMessage(&msg); DispatchMessageW(&msg);
         }
         if(!running) break;
-        if(AnimationClock::now()-lastResetCheck>=std::chrono::seconds(1)) {
+        if(!benchmark.enabled && AnimationClock::now()-lastResetCheck>=std::chrono::seconds(1)) {
             adoptFigureReset(); lastResetCheck=AnimationClock::now();
         }
-        if(smoke && GetTickCount64()-started>1500) { exitCode=renderedFrames>0?0:1; break; }
+        if(smoke) {
+            // Exercise HWND transitions between the GPU swap chain and the
+            // original Direct2D target without writing user preferences.
+            if(smokeStage==0 && renderedFrames>=5) { settings.appearance=0; resetEngine(); ++smokeStage; }
+            else if(smokeStage==1 && renderedFrames>=10) { settings.appearance=1; settings.glow=0; resetEngine(); ++smokeStage; }
+            else if(smokeStage==2 && renderedFrames>=15) {
+                settings.glow=80; settings.debugCPU=1; resetEngine(); ++smokeStage;
+                SetWindowPos(windows.front(),nullptr,0,0,720,540,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+            }
+            if(GetTickCount64()-started>1500 && smokeStage==3 && renderedFrames>=20) break;
+            if(GetTickCount64()-started>10000) { exitCode=1; break; }
+        }
+        if(benchmark.enabled && benchmark.elapsed()>=benchmark.seconds) { exitCode=renderedFrames>0?0:1; break; }
         if(preview) {
-            HWND parent=GetParent(windows.front());
-            if(!IsWindow(parent)) break;
-            RECT r, current; GetClientRect(parent,&r); GetClientRect(windows.front(),&current);
+            HWND previewParent=GetParent(windows.front());
+            if(!IsWindow(previewParent)) break;
+            RECT r, current; GetClientRect(previewParent,&r); GetClientRect(windows.front(),&current);
             if(r.right!=current.right || r.bottom!=current.bottom)
                 SetWindowPos(windows.front(),nullptr,0,0,r.right,r.bottom,SWP_NOZORDER|SWP_NOACTIVATE);
         }
@@ -409,15 +496,17 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
             }
             lastStep=AnimationClock::now();
             if(!ready) {
-                if(smoke) { exitCode=1; break; }
+                if(smoke || benchmark.enabled) { exitCode=1; break; }
                 MsgWaitForMultipleObjectsEx(0,nullptr,100,QS_ALLINPUT,MWMO_INPUTAVAILABLE);
                 continue;
             }
             animationReady=true;
+            if(benchmark.enabled && benchmark.startupSeconds==0) benchmark.startupSeconds=benchmark.elapsed();
         }
         auto now=AnimationClock::now();
         double elapsed=std::chrono::duration<double>(now-lastStep).count(); lastStep=now;
         if(!paused) {
+            BenchmarkSample sample(benchmark.enabled?&benchmark.simulation:nullptr);
             int steps=frameTiming.advance(elapsed);
             for(int i=0;i<steps;++i) {
                 previousHistory=engine->modernHistory;
@@ -438,6 +527,10 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
         const HRESULT flushed=visible?DwmFlush():E_FAIL;
         if(FAILED(flushed) || AnimationClock::now()-beforeFlush<std::chrono::milliseconds(1))
             MsgWaitForMultipleObjectsEx(0,nullptr,visible?8:100,QS_ALLINPUT,MWMO_INPUTAVAILABLE);
+    }
+    if(benchmark.enabled) {
+        benchmark.frames=renderedFrames;
+        if(!benchmark.finish(exitCode)) exitCode=1;
     }
     saveFigure();
     for(HWND w:windows) if(IsWindow(w)) DestroyWindow(w);

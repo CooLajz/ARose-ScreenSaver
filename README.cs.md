@@ -6,7 +6,7 @@ Nativní rekonstrukce modulu ARose pro BlitzBlank na Amize. Obsahuje systémový
 
 Cíl sestavení je macOS 13 a novější. Výstupy jsou univerzální pro Apple Silicon i Intel; ruční ověření proběhlo na Macu M2. Intel ani všechny starší verze macOS zatím nebyly otestovány.
 
-Projekt se připravuje k prvnímu veřejnému vydání. První Windows x64 port je implementovaný; praktické ověření ve Windows ještě zbývá. Obsahuje systémový `.scr`, vlastní nastavení a náhled. Pokyny uvádí [instalační příručka](Windows/INSTALL.txt). Nový kód používá licenci MIT v rozsahu popsaném v [licenčním upozornění](THIRD_PARTY_NOTICES.md); původní řídicí tabulky pod MIT nepřelicencováváme. Před zveřejněním je potřeba vyjasnit oprávnění k odvozeným částem.
+Projekt se připravuje k prvnímu veřejnému vydání. Windows x64 port má ověřené nativní sestavení a základní testy; úplné provozní ověření ještě zbývá. Obsahuje systémový `.scr`, vlastní nastavení a náhled. Pokyny uvádí [instalační příručka](Windows/INSTALL.txt). Nový kód používá licenci MIT v rozsahu popsaném v [licenčním upozornění](THIRD_PARTY_NOTICES.md); původní řídicí tabulky pod MIT nepřelicencováváme. Před zveřejněním je potřeba vyjasnit oprávnění k odvozeným částem.
 
 Postup balení a podmínky veřejného vydání uvádí [průvodce vydáváním](docs/releases.md).
 
@@ -113,7 +113,7 @@ Nastavení systému, aby všechny části používaly nové schéma předvoleb.
 
 Moderní režim na podporovaných Macích vykresluje záři i ostré body přes Metal, také při vypnuté záři. Malá předpočítaná textura zachovává vyhlazování jemných bodů z Core Graphics. Při nedostupnosti Metalu se použije CPU. Obrazové rozdíly a omezení měření jsou popsány v [poznámkách k výkonu](docs/performance.md).
 
-Optimalizace přípravy Windows rendereru a zbývající kontroly přímo na Windows jsou uvedeny v [podkladech pro pokračování na Windows](docs/windows-handoff.md) (anglicky). Nejde zatím o změřené zrychlení ve Windows.
+Windows sestavíte a otestujete příkazem `./script/build_windows.ps1` (C++ Build Tools 2022, Windows SDK, CMake a Python 3). Moderní režim používá dávkové GPU vykreslování přes Direct3D 11, se záložním rendererem Direct2D. CPU overlay uvádí použitý renderer. [Měření Windows rendereru](docs/windows-performance.md) (anglicky) popisuje reprodukovatelné porovnání, CPU, snímkovou frekvenci a změřené obrazové odchylky. Zbývající provozní kontroly uvádějí [podklady pro pokračování na Windows](docs/windows-handoff.md).
 
 ## Pokračování od posledního obrazce
 

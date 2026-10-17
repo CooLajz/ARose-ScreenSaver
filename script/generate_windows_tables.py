@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
-source = (root / 'Sources/Core/RoseTables.swift').read_text()
+source = (root / 'Sources/Core/RoseTables.swift').read_text(encoding='utf-8')
 arrays = re.findall(r'static let (\w+) = \[([\d,\s]+)\]', source)
 if {name for name, _ in arrays} != {'radiusA', 'radiusB', 'rotation', 'frequency'}:
     raise SystemExit('Unexpected Swift table format')
@@ -20,7 +20,7 @@ target = root / 'Windows/RoseTables.h'
 parser = argparse.ArgumentParser()
 parser.add_argument('--check', action='store_true')
 if parser.parse_args().check:
-    if not target.exists() or target.read_text() != output:
+    if not target.exists() or target.read_text(encoding='utf-8') != output:
         raise SystemExit('Windows tables are stale; run script/generate_windows_tables.py')
 else:
-    target.write_text(output)
+    target.write_text(output, encoding='utf-8')

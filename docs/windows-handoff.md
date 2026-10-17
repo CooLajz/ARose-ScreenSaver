@@ -1,10 +1,25 @@
 # Windows continuation
 
+## Native Windows work, 17 October 2026
+
+The native MSVC Release build, six CTest tests (including 72 Direct2D and 72
+hardware GPU image comparisons) and the 24 Swift/C++ parity checkpoints pass on the Windows
+development laptop. MSVC manifest duplication and locale-dependent Python
+table checks were fixed. Modern mode now batches halos and points through
+Direct3D 11 with native Direct2D-generated coverage textures. The retained
+Direct2D hardware/software renderer handles fallback and comparisons. The smoke
+run covers switching Modern → Original → Modern, glow 0/80, resize and the CPU
+overlay without saving preferences. See [Windows measurements and reproduction](windows-performance.md)
+for commands, measured image differences and the remaining acceptance limits.
+These local results do not establish that GitHub CI or the full acceptance
+matrix has passed. No remote push or release is part of this work.
+
 ## Baseline prepared on macOS, 17 October 2026
 
-The Windows renderer remains Direct2D. No new graphics API, shader, external
-runtime or elevation requirement has been introduced. The Windows
-changes are independent of the Mac's full Metal renderer.
+At this preparation baseline the Windows renderer was Direct2D. That baseline
+introduced no new graphics API, shader, external runtime or elevation
+requirement. The native Windows work above supersedes its rendering path;
+both remain independent of the Mac's full Metal renderer.
 
 - `Windows/PreparedFrame.h` prepares interpolation, pixel positions, age opacity
   and halo indices once per window redraw, reused by the glow and point passes.

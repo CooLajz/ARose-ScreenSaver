@@ -2,6 +2,19 @@
 
 ## Unreleased — public distribution preparation
 
+- Batch Windows Modern rendering through Direct3D 11 using native Direct2D
+  coverage and halo textures. Preserve simulation timing and source-over draw
+  order, retain Direct2D fallback, and identify the renderer in the CPU overlay.
+- Add reproducible Windows build/benchmark scripts and document Radeon laptop
+  measurements: approximately 60 fps at 0.47% all-core CPU without the debug
+  overlay and 0.72% with it, down from about 5% for the Direct2D path. Record
+  the hardware, settings, measurement duration and image differences in
+  `docs/windows-performance.md`; these are local results, not battery estimates.
+- Fix duplicate MSVC manifests and locale-dependent Windows table validation.
+  Pass six native tests, including 72 Direct2D and 72 hardware GPU image
+  comparisons, renderer transitions, resize, overlay and device recreation,
+  plus the 24 Swift/C++ parity checkpoints. Full Windows acceptance is pending.
+
 - Add a CS/EN saved-figure reset button on macOS and Windows, applied only on
   Save. Clear both bookmarks and prevent stale instances from restoring old
   progress. Test Save/Cancel and simulation at one trillion frames.

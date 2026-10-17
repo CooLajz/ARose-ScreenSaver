@@ -7,9 +7,12 @@ advertise a platform as tested based solely on successful cross-compilation.
 ## Current status
 
 - Native macOS saver and preview app; universal arm64/x86_64.
-- Initial Windows C++/Win32/Direct2D port with native `.scr`, embedded preview,
+- Native Windows C++/Win32 port with Direct3D 11 Modern rendering and Direct2D
+  fallback, native `.scr`, embedded preview,
   settings, multi-monitor windows, and English/Czech UI. Primary target: Windows
-  11 x64. The initial build was reported functional on a user laptop; occasional motion stutter was reported. The user reported improved motion with the compositor-paced/interpolated build. The latest conservative preparation/startup changes have passed macOS-hosted core tests and await Windows runtime acceptance; see [Windows continuation](windows-handoff.md).
+  11 x64. Native MSVC builds, six tests and local GPU/CPU measurements have passed.
+  Full Windows acceptance remains pending; see [Windows continuation](windows-handoff.md)
+  and [performance measurements](windows-performance.md).
 - New-code MIT license selected. Original data and derivative rights remain
   excluded and unresolved; see [third-party notices](../THIRD_PARTY_NOTICES.md).
 - macOS local packages use ad-hoc signing. Windows candidates are unsigned.
@@ -86,8 +89,9 @@ this repository. Do not turn off Gatekeeper to make the release appear ready.
   save/cancel, persistence after restart, Czech and English UI and fallback.
 - Test one and multiple displays, mixed DPI, portrait screens and monitor changes.
 - Check smooth animation, GPU/CPU load, memory over a long session, and recovery
-  after display sleep. Modern glow is rendered by Direct2D with alpha-blended
-  radial brushes; it is not pixel-identical to the Mac's additive renderer.
+  after display sleep. Modern mode batches Direct2D-generated textures through
+  Direct3D 11 with source-over alpha blending. Its Direct2D fallback is retained;
+  neither path is pixel-identical to the Mac's additive renderer.
 - Verify keyboard/mouse exit from full screen. Verify Windows still enforces
   the configured lock/password policy; the saver never implements passwords.
 - Install from an extracted ZIP in a stable user folder via the native `.scr`

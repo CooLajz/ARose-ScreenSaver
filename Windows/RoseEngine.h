@@ -148,7 +148,7 @@ public:
         for(size_t i=0;i<tracks.size();++i) {
             tracks[i].angle=wrap(int(v[22])+tracks[i].base); tracks[i].color=(int(v[23])+int(i))%96; tracks[i].history={};
         }
-        slot=0; std::fill(pixels.begin(),pixels.end(),0); modernHistory.clear();
+        slot=0; std::fill(pixels.begin(),pixels.end(),uint8_t{0}); modernHistory.clear();
         return true;
     }
     static std::array<uint32_t, 256> palette(int mode) {

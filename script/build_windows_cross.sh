@@ -24,5 +24,6 @@ fi
 "$ZIG_BIN" c++ -target x86_64-windows-gnu -std=c++17 -O2 -Wall -Wextra -ffp-contract=off \
     -DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0a00 -municode -Wl,--subsystem,windows \
     Windows/main.cpp .build/windows/ARose.res -ld2d1 -ldwmapi -ldwrite -lcomctl32 -lshell32 -ladvapi32 -luser32 -lgdi32 \
+    -ld3d11 -ldxgi -ld3dcompiler -lwindowscodecs -lole32 \
     -o dist/windows/ARose.scr
 printf '%s\n' 'Built dist/windows/ARose.scr (Windows x64, unsigned; runtime testing still required).'
