@@ -133,3 +133,8 @@ uložené stavy se ignorují. Žádná data se neposílají po síti.
 Pro návrat na začátek stiskněte **Zapomenout uložený obrazec** a poté **Uložit**.
 Smaže se pozice spořiče i samostatného náhledu; volba pokračování zůstane beze změny.
 Tlačítko **Zrušit** zachová původní pozici.
+
+Na macOS 14 a novějším se moderní animace řídí obnovováním displeje, včetně
+120 Hz. Polohy a barvy mezisnímků se interpolují mezi nezměněnými 50Hz kroky
+simulace. Původní režim Amiga a starší macOS zachovávají PAL časování.
+Skutečnou obnovovací frekvenci může systém omezit podle displeje a napájení.

@@ -2,6 +2,10 @@
 
 ## Unreleased — public distribution preparation
 
+- Synchronize macOS 14+ Modern presentation to the display, including 120 Hz,
+  with position and wrapped-hue interpolation between unchanged PAL steps.
+  Keep retro/older macOS timing and test 60/120/144 Hz simulation equivalence.
+
 - Batch Windows Modern rendering through Direct3D 11 using native Direct2D
   coverage and halo textures. Preserve simulation timing and source-over draw
   order, retain Direct2D fallback, and identify the renderer in the CPU overlay.

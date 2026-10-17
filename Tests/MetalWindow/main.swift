@@ -8,6 +8,7 @@ final class WindowTest: NSObject, NSApplicationDelegate {
     var ticks = 0
     var beforeResizeCount = 0
     var steadyResult = ""
+    var displayRate = ""
     var startupAllocations = 0
     let settings = UserDefaults(suiteName: "cz.coolajz.ARose.window-test.\(UUID().uuidString)")!
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -23,10 +24,20 @@ final class WindowTest: NSObject, NSApplicationDelegate {
         precondition(view.engine.frame == 1)
         view.animateOneFrame()
         precondition(view.engine.frame == 1, "Initial GPU setup was counted as elapsed simulation time")
+        view.startAnimation()
+        let simulationStart = view.engine.frame
+        let clockStart = ProcessInfo.processInfo.systemUptime
         timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [self] _ in
             ticks += 1; view.animateOneFrame()
             if ticks == 30 { startupAllocations = view.metalBufferAllocationCount! }
-            if ticks == 190 { view.paused = true }
+            if ticks == 190 {
+                let elapsed = ProcessInfo.processInfo.systemUptime - clockStart
+                let steps = view.engine.frame - simulationStart
+                precondition(abs(Double(steps) - elapsed * 50) < 12, "Display link changed simulation speed")
+                displayRate = "Display-driven rate: \(Double(view.metalFrameStatistics!.submitted) / elapsed) submissions/s; screen maximum \(window.screen?.maximumFramesPerSecond ?? 0) Hz."
+                print(displayRate)
+                view.paused = true
+            }
             if ticks == 200 {
                 precondition(view.layer?.sublayers?.contains(where: { $0 is CAMetalLayer && !$0.isHidden }) == true,
                              "Metal presentation layer missing")
@@ -52,7 +63,8 @@ final class WindowTest: NSObject, NSApplicationDelegate {
             if ticks == 900 { view.reset() }
             if ticks == 1100 {
                 precondition(view.layer?.sublayers?.contains(where: { $0 is CAMetalLayer && !$0.isHidden }) == true)
-                try! "OK: Metal window, paused resize, glow toggle and reset. \(steadyResult)\n".write(toFile: CommandLine.arguments[1], atomically: true, encoding: .utf8)
+                try! "OK: Metal window, paused resize, glow toggle and reset. \(steadyResult) \(displayRate)\n".write(toFile: CommandLine.arguments[1], atomically: true, encoding: .utf8)
+                view.stopAnimation()
                 timer?.invalidate(); NSApp.terminate(nil)
             }
         }

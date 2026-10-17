@@ -120,3 +120,8 @@ saved states are ignored. No files are sent over the network.
 To start over, click **Forget saved figure**, then **Save**. This clears both
 the saver and standalone preview bookmarks without changing the resume option.
 **Cancel** preserves the original position.
+
+On macOS 14 and later, Modern animation follows the display refresh rate,
+including 120 Hz, and interpolates positions and colors between the unchanged
+50 Hz simulation steps. Original Amiga mode and older macOS retain PAL pacing.
+The system may lower the actual refresh rate under power or display constraints.

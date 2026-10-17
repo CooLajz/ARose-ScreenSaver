@@ -2,6 +2,7 @@ import AppKit
 import ScreenSaver
 import OSLog
 import Darwin
+import QuartzCore
 
 // Resolve against the saver bundle, not the macOS host application's bundle.
 private enum RoseLocalization {
@@ -49,12 +50,71 @@ final class RoseCPUMeter {
     }
 }
 
+// A display link retains its target; keep the view weak so legacy hosts can release it.
+@available(macOS 14.0, *)
+private final class RoseDisplayTarget: NSObject {
+    weak var view: ARoseView?
+    init(_ view: ARoseView) { self.view = view }
+    @objc func tick(_ link: CADisplayLink) {
+        guard let view else { link.invalidate(); return }
+        view.displayTick(at: link.targetTimestamp)
+    }
+}
+
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
     static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0]
     private(set) var engine = RoseEngine()
     private var lastTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
+    private var displayClock: AnyObject?
+    private var animationActive = false
+    private var screenObserver: NSObjectProtocol?
+    private var previousHistory = [[RoseEngine.ModernPoint]]()
+    private var presentationHistory: [[RoseEngine.ModernPoint]]?
+
+    private func updateDisplayClock() {
+        guard #available(macOS 14.0, *) else { return }
+        let wanted = animationActive && engine.modern && window != nil
+        if !wanted {
+            (displayClock as? CADisplayLink)?.invalidate()
+            displayClock = nil
+            return
+        }
+        guard displayClock == nil else { return }
+        // Prepare GPU resources before starting the display clock.
+        displayAnimationFrame()
+        let link = displayLink(target: RoseDisplayTarget(self), selector: #selector(RoseDisplayTarget.tick(_:)))
+        let maximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: min(60, maximum), maximum: maximum, preferred: maximum)
+        link.add(to: .main, forMode: .common)
+        displayClock = link
+        lastTime = 0
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        screenObserver = nil
+        if let window {
+            screenObserver = NotificationCenter.default.addObserver(forName: NSWindow.didChangeScreenNotification,
+                object: window, queue: .main) { [weak self] _ in self?.viewDidChangeBackingProperties() }
+        }
+        if #available(macOS 14.0, *) { (displayClock as? CADisplayLink)?.invalidate() }
+        displayClock = nil
+        updateDisplayClock()
+    }
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        needsLayout = true
+        if #available(macOS 14.0, *), let link = displayClock as? CADisplayLink {
+            let maximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: min(60, maximum), maximum: maximum, preferred: maximum)
+        }
+    }
+    deinit {
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        if #available(macOS 14.0, *) { (displayClock as? CADisplayLink)?.invalidate() }
+    }
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var retroPalette = [UInt32]()
     private var options: RoseOptions?
@@ -130,6 +190,8 @@ final class ARoseView: ScreenSaverView {
         lastTime = 0; accumulator = 0
         cpuMeter = RoseCPUMeter()
         super.startAnimation()
+        animationActive = true
+        updateDisplayClock()
     }
     @discardableResult func adoptFigureReset() -> Bool {
         defaults.synchronize()
@@ -169,6 +231,8 @@ final class ARoseView: ScreenSaverView {
     }
     override func stopAnimation() {
         configurationLog.notice("Figure stop preview=\(self.isPreview) session=\(self.figureSession) writer=\(Self.figureWriter === self) frame=\(self.engine.frame)")
+        animationActive = false
+        updateDisplayClock()
         saveFigure()
         figureSession = false
         if Self.figureWriter === self { Self.figureWriter = nil }
@@ -188,6 +252,8 @@ final class ARoseView: ScreenSaverView {
         debugCPU = defaults.bool(forKey: "debugCPU")
         cpuMeter = RoseCPUMeter()
         modernColors.removeAll(keepingCapacity: true)
+        previousHistory.removeAll()
+        presentationHistory = nil
         engine = RoseEngine()
         let storedGlow = defaults.double(forKey: "glow")
         glow = storedGlow.isFinite ? min(1, max(0, storedGlow)) : 0
@@ -205,21 +271,32 @@ final class ARoseView: ScreenSaverView {
             return (red | green | blue | 255).bigEndian
         }
         lastTime = 0; accumulator = 0; needsDisplay = true
+        updateDisplayClock()
     }
     override func animateOneFrame() {
-        let now = ProcessInfo.processInfo.systemUptime
+        // The host/preview timer remains the fallback for retro and older macOS.
+        guard displayClock == nil else { return }
+        advanceAnimation(at: ProcessInfo.processInfo.systemUptime, interpolate: false)
+    }
+    fileprivate func displayTick(at time: TimeInterval) {
+        guard animationActive else { return }
+        advanceAnimation(at: time, interpolate: true)
+    }
+    func advanceAnimation(at now: TimeInterval, interpolate: Bool) {
         if paused {
             if debugCPU { displayAnimationFrame() }
             lastTime = now
             return
         }
         if lastTime == 0 {
+            previousHistory = engine.modernHistory
             engine.step()
+            presentationHistory = nil
             displayAnimationFrame()
             checkpointFigureIfNeeded()
             // Initial shader/atlas/drawable preparation is not elapsed animation
             // time. Start the clock only after the first image is submitted.
-            lastTime = ProcessInfo.processInfo.systemUptime
+            lastTime = interpolate ? now : ProcessInfo.processInfo.systemUptime
             return
         }
         defer {
@@ -229,10 +306,16 @@ final class ARoseView: ScreenSaverView {
         // Preserve PAL pacing even on 60/120 Hz displays; discard time spent asleep.
         accumulator += min(0.1, max(0, now - lastTime))
         let previousFrame = engine.frame
-        while accumulator >= 0.02 { engine.step(); accumulator -= 0.02 }
+        while accumulator + 1e-12 >= 0.02 {
+            if interpolate { previousHistory = engine.modernHistory }
+            engine.step(); accumulator = max(0, accumulator - 0.02)
+        }
+        presentationHistory = interpolate ? RoseInterpolation.history(previous: previousHistory,
+            current: engine.modernHistory, alpha: accumulator / 0.02) : nil
+        if interpolate { modernColors.removeAll(keepingCapacity: true) }
         // Timer jitter can call us before the next PAL step. Keep the existing
         // image instead of redrawing an identical frame; never clear pending damage.
-        if engine.frame != previousFrame { displayAnimationFrame() }
+        if interpolate || engine.frame != previousFrame { displayAnimationFrame() }
     }
     func frameImage() -> CGImage? {
         // The provider owns an immutable snapshot: the asynchronous compositor
@@ -266,7 +349,7 @@ final class ARoseView: ScreenSaverView {
                 renderer.surface.frame = bounds
                 renderer.surface.contentsScale = backing
                 renderer.surface.isHidden = false
-                if renderer.present(size: bounds.size, backing: backing, history: engine.modernHistory,
+                if renderer.present(size: bounds.size, backing: backing, history: presentationHistory ?? engine.modernHistory,
                                     glow: glow, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil) { return }
                 renderer.surface.isHidden = true
             }
@@ -279,10 +362,6 @@ final class ARoseView: ScreenSaverView {
         if renderer.surface.frame != bounds || renderer.surface.contentsScale != window.backingScaleFactor {
             displayAnimationFrame()
         }
-    }
-    override func viewDidChangeBackingProperties() {
-        super.viewDidChangeBackingProperties()
-        needsLayout = true
     }
     var metalFrameStatistics: (submitted: Int, busy: Int, noDrawable: Int)? {
         metalRenderer?.frameStatistics
@@ -339,6 +418,7 @@ final class ARoseView: ScreenSaverView {
         NSGraphicsContext.restoreGraphicsState()
     }
     func drawModern(in context: CGContext, includeGlow: Bool = true, backing: CGFloat? = nil) {
+        let history = presentationHistory ?? engine.modernHistory
         context.saveGState()
         defer { context.restoreGState() }
         // Uniform scaling keeps the rose circular on ultrawide and portrait displays.
@@ -355,8 +435,8 @@ final class ARoseView: ScreenSaverView {
             context.setBlendMode(.plusLighter)
             context.interpolationQuality = .high
             let haloSize = diameter * (4 + 12 * glow)
-            for (age, points) in engine.modernHistory.enumerated() {
-                let strength = 0.25 + 0.75 * Double(age + 1) / Double(engine.modernHistory.count)
+            for (age, points) in history.enumerated() {
+                let strength = 0.25 + 0.75 * Double(age + 1) / Double(history.count)
                 context.setAlpha(glow * strength * 0.5)
                 for point in points {
                     let sprite = Self.glowSprites[min(255, Int(point.hue * 256))]
@@ -367,11 +447,11 @@ final class ARoseView: ScreenSaverView {
             }
             context.restoreGState()
         }
-        let oldestFrame = engine.frame - engine.modernHistory.count
+        let oldestFrame = engine.frame - history.count
         for key in Array(modernColors.keys) where key < oldestFrame || key >= engine.frame {
             modernColors.removeValue(forKey: key)
         }
-        for (age, points) in engine.modernHistory.enumerated() {
+        for (age, points) in history.enumerated() {
             let frameID = oldestFrame + age
             let colors: [PointColors]
             if let cached = modernColors[frameID] { colors = cached }
@@ -382,7 +462,7 @@ final class ARoseView: ScreenSaverView {
                 }
                 modernColors[frameID] = colors
             }
-            let alpha = 0.25 + 0.75 * Double(age + 1) / Double(engine.modernHistory.count)
+            let alpha = 0.25 + 0.75 * Double(age + 1) / Double(history.count)
             for (index, point) in points.enumerated() {
                 context.setAlpha(alpha)
                 context.setFillColor(colors[index].dot)

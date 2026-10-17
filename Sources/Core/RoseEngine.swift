@@ -184,3 +184,24 @@ final class RoseEngine {
         return colors
     }
 }
+
+// Presentation only: never feeds interpolated values back into the simulation.
+enum RoseInterpolation {
+    static func history(previous: [[RoseEngine.ModernPoint]], current: [[RoseEngine.ModernPoint]],
+                        alpha: Double) -> [[RoseEngine.ModernPoint]] {
+        guard previous.count == current.count else { return current }
+        let t = min(1, max(0, alpha))
+        return zip(previous, current).map { old, new in
+            guard old.count == new.count else { return new }
+            return zip(old, new).map { a, b in
+                var delta = b.hue - a.hue
+                if delta > 0.5 { delta -= 1 }
+                if delta < -0.5 { delta += 1 }
+                let hue = a.hue + delta * t
+                return RoseEngine.ModernPoint(x: a.x + (b.x - a.x) * t,
+                                              y: a.y + (b.y - a.y) * t,
+                                              hue: hue - floor(hue))
+            }
+        }
+    }
+}

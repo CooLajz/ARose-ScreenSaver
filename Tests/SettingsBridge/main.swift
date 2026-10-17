@@ -196,3 +196,30 @@ do {
     precondition(prefs.bool(forKey: "resumeFigure"))
 }
 print("OK: reset requires Save, Cancel preserves progress, resume preference stays enabled.")
+
+// Display cadence must not alter the PAL simulation or its saved state.
+for hz in [60, 120, 144] {
+    let prefs = UserDefaults(suiteName: "cz.coolajz.ARose.timing.\(UUID().uuidString)")!
+    prefs.setVolatileDomain(["appearance": 1, "resumeFigure": false], forName: UserDefaults.argumentDomain)
+    let view = ARoseView(frame: .zero, isPreview: true, settings: prefs)!
+    let reference = RoseEngine(); reference.modern = true; reference.speed = 3; reference.tail = 16; reference.paletteMode = 2
+    view.advanceAnimation(at: 100, interpolate: true)
+    for i in 1...(hz * 10) { view.advanceAnimation(at: 100 + Double(i) / Double(hz), interpolate: true) }
+    for _ in 0..<501 { reference.step() }
+    precondition(view.engine.savedFigure() == reference.savedFigure(), "Display cadence changed simulation at \(hz) Hz")
+    let beforePause = view.engine.frame
+    view.paused = true
+    view.advanceAnimation(at: 111, interpolate: true)
+    precondition(view.engine.frame == beforePause)
+    view.paused = false
+    view.advanceAnimation(at: 111.02, interpolate: true)
+    precondition(view.engine.frame == beforePause + 1)
+    view.advanceAnimation(at: 200, interpolate: true)
+    precondition(view.engine.frame == beforePause + 6, "Sleep must not cause unbounded catch-up")
+}
+let a = RoseEngine.ModernPoint(x: 0, y: 10, hue: 0.99)
+let b = RoseEngine.ModernPoint(x: 10, y: 0, hue: 0.01)
+let midpoint = RoseInterpolation.history(previous: [[a]], current: [[b]], alpha: 0.5)[0][0]
+precondition(midpoint.x == 5 && midpoint.y == 5 && abs(midpoint.hue) < 1e-12)
+precondition(RoseInterpolation.history(previous: [], current: [[b]], alpha: 0.5)[0][0].x == b.x)
+print("OK: 60/120/144 Hz preserve exact PAL state; pause, sleep, trail warm-up and hue-wrap interpolation.")

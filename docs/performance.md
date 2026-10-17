@@ -177,3 +177,21 @@ second callback does not catch up initialization time and that filling the trail
 uses at most six instance-buffer allocations across three slots, with no further
 growth in steady animation. Perceptual acceptance in the system saver remains a
 separate check; these changes do not establish that every visible hitch is fixed.
+
+## Display-paced Modern animation (17 October 2026)
+
+On macOS 14+, an NSView CADisplayLink drives Modern presentation at the current
+screen's preferred maximum rate. The host's 50 Hz callbacks do not also advance
+the simulation while that link is active. Simulation remains 50 Hz; positions
+and circular hue interpolate between consecutive histories, adding up to one
+PAL step of presentation latency. Trail warm-up uses the current history until
+both histories have matching lengths. Retro and older macOS keep host timing.
+
+Deterministic 60/120/144 Hz tests preserve the exact saved simulation state after
+ten seconds and check pause, bounded sleep catch-up and hue wrapping. A local
+window run on a screen reporting 120 Hz measured 110.63 Metal submissions/s over
+the initial approximately four seconds, with 423 submissions and zero busy or
+unavailable-drawable skips at the steady-animation check. This is submission
+cadence, not proof of a locked 120 displayed frames/s. Window resize while paused,
+glow changes and reset passed. System-saver full-screen smoothness still needs
+visual acceptance; refresh can vary with system scheduling and power policy.
