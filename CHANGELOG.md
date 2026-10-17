@@ -2,6 +2,10 @@
 
 ## Unreleased — public distribution preparation
 
+- Save macOS figure checkpoints after the first frame and every second so short
+  legacy-host sessions survive missing stop callbacks. Document host-misreported
+  previews and add a regression test that deliberately omits stopAnimation.
+
 - Add optional saved-figure continuation on macOS and Windows, with CS/EN
   settings, versioned validated state and 30-second checkpoints. Isolate
   standalone preview bookmarks and exclude embedded previews. Test exact

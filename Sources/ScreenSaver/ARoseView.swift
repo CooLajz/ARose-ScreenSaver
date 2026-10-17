@@ -112,13 +112,15 @@ final class ARoseView: ScreenSaverView {
         ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
+        configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
         defaults.synchronize()
         if configuration() != loadedConfiguration { reset() }
         if !isPreview && !figureSession {
             if Self.figureWriter == nil { Self.figureWriter = self }
             figureSession = true
             if defaults.bool(forKey: "resumeFigure"), let state = defaults.array(forKey: figureStorageKey) as? [Int] {
-                engine.restoreFigure(state)
+                let restored = engine.restoreFigure(state)
+                configurationLog.notice("Figure restore success=\(restored) frame=\(self.engine.frame)")
             }
             lastFigureSave = engine.frame
         }
@@ -130,10 +132,20 @@ final class ARoseView: ScreenSaverView {
         guard figureSession, !isPreview, Self.figureWriter === self,
               defaults.bool(forKey: "resumeFigure"), engine.frame > 0 else { return }
         defaults.set(engine.savedFigure(), forKey: figureStorageKey)
-        defaults.synchronize()
+        guard defaults.synchronize() else {
+            configurationLog.error("Figure checkpoint could not be synchronized")
+            return
+        }
         lastFigureSave = engine.frame
     }
+    // Legacy macOS hosts can omit stopAnimation, including after short runs.
+    // Checkpoint the first rendered frame and then once per second, not per draw.
+    func checkpointFigureIfNeeded() {
+        guard lastFigureSave == 0 || engine.frame - lastFigureSave >= 50 else { return }
+        saveFigure()
+    }
     override func stopAnimation() {
+        configurationLog.notice("Figure stop preview=\(self.isPreview) session=\(self.figureSession) writer=\(Self.figureWriter === self) frame=\(self.engine.frame)")
         saveFigure()
         figureSession = false
         if Self.figureWriter === self { Self.figureWriter = nil }
@@ -179,6 +191,7 @@ final class ARoseView: ScreenSaverView {
         if lastTime == 0 {
             engine.step()
             displayAnimationFrame()
+            checkpointFigureIfNeeded()
             // Initial shader/atlas/drawable preparation is not elapsed animation
             // time. Start the clock only after the first image is submitted.
             lastTime = ProcessInfo.processInfo.systemUptime
@@ -186,7 +199,7 @@ final class ARoseView: ScreenSaverView {
         }
         defer {
             lastTime = now
-            if engine.frame - lastFigureSave >= 1500 { saveFigure() }
+            checkpointFigureIfNeeded()
         }
         // Preserve PAL pacing even on 60/120 Hz displays; discard time spent asleep.
         accumulator += min(0.1, max(0, now - lastTime))

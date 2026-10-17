@@ -101,10 +101,13 @@ Windows preparation optimizations and remaining native runtime checks are record
 
 Enable **Resume from last figure** to continue the pattern, rotation and color
 phase on the next run, including after restarting the computer. This option is
-off by default and works in both styles. State is saved on normal exit and every
-30 seconds of animation; a forced termination can lose the latest interval.
+off by default and works in both styles. State is saved on normal exit. macOS also checkpoints the first frame and every
+second because its legacy host may omit the exit callback; Windows checkpoints
+every 30 seconds. A forced termination can lose the latest interval.
 Trails rebuild over the first 0.4 seconds rather than being stored as an image.
-The embedded settings preview never updates the saved position. The standalone
+Previews reported as previews by the OS never update the saved position. Some
+macOS versions run the System Settings thumbnail as a full saver; in that case
+it shares the system saver bookmark. The standalone
 macOS preview and Windows `/w` window keep their own separate position. Disabling
 the option ignores the bookmark without deleting it. Invalid or unsupported
 saved states are ignored. No files are sent over the network.

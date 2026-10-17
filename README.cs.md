@@ -119,10 +119,13 @@ Optimalizace přípravy Windows rendereru a zbývající kontroly přímo na Win
 
 Volba **Pokračovat od posledního obrazce** obnoví při příštím spuštění tvar,
 natočení i barevnou fázi, také po restartu počítače. Ve výchozím nastavení je
-vypnutá a funguje v obou podobách. Stav se ukládá při běžném ukončení a každých
-30 sekund animace; při nuceném ukončení se může poslední interval ztratit.
+vypnutá a funguje v obou podobách. Stav se ukládá při běžném ukončení. macOS navíc ukládá první snímek a pak každou
+sekundu, protože systémový hostitel nemusí zavolat ukončení; Windows ukládá
+každých 30 sekund. Při nuceném ukončení se může poslední interval ztratit.
 Stopa se během prvních 0,4 sekundy dokreslí, neukládá se jako obrázek.
-Malý náhled v nastavení uloženou pozici nemění. Samostatná náhledová aplikace
+Náhled označený systémem jako náhled uloženou pozici nemění. Některé verze macOS
+ale spouštějí i dlaždici v Nastavení systému jako plnohodnotný spořič; tehdy
+sdílí jeho uloženou pozici. Samostatná náhledová aplikace
 pro macOS a okno Windows `/w` mají vlastní oddělenou pozici. Vypnutím volby se
 uložený stav přestane používat, ale nesmaže se. Neplatné nebo nepodporované
 uložené stavy se ignorují. Žádná data se neposílají po síti.

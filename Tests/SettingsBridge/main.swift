@@ -93,3 +93,24 @@ do {
     precondition(prefs.array(forKey: "figureState.v1") as? [Int] == expected)
 }
 print("OK: saver lifecycle restores bookmarks; thumbnails, other monitors and standalone preview do not overwrite them.")
+
+// Regression: the legacy host can discard a short-running saver without stopAnimation.
+do {
+    let name = "cz.coolajz.ARose.abrupt-tests.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.set(true, forKey: "resumeFigure")
+    var view: ARoseView? = ARoseView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), isPreview: false, settings: prefs)!
+    view!.startAnimation(); view!.engine.step(); view!.checkpointFigureIfNeeded()
+    precondition((prefs.array(forKey: "figureState.v1") as? [Int])?[1] == 1)
+    for _ in 0..<50 { view!.engine.step() }
+    view!.checkpointFigureIfNeeded()
+    let expected = view!.engine.savedFigure()
+    view = nil // Deliberately omit stopAnimation.
+    let newPreferences = UserDefaults(suiteName: name)!
+    let next = ARoseView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), isPreview: false, settings: newPreferences)!
+    next.startAnimation()
+    precondition(next.engine.savedFigure() == expected)
+    next.stopAnimation()
+}
+print("OK: first-frame and one-second checkpoints survive missing stopAnimation.")
