@@ -1,0 +1,35 @@
+ARose ScreenSaver — macOS DEVELOPMENT BUILD / VÝVOJOVÉ SESTAVENÍ
+
+English
+This is an ad-hoc signed, non-notarized development candidate, not a public
+release. Third-party licensing clearance is pending; see THIRD_PARTY_NOTICES.md.
+Deployment target: macOS 13+. Apple Silicon and Intel are included; only M2
+hardware has been manually tested.
+
+Extract the ZIP into Downloads. Open ARose.saver in Finder and follow the
+installation prompt. If needed, copy it to ~/Library/Screen Savers/ and reopen
+System Settings. Select ARose. Keep ARose Preview.app for standalone preview
+and settings (Command-comma). If the system Options button fails, keep the
+system's animated preview open and save settings through ARose Preview.
+The app reports whether the running system saver acknowledged the change.
+Transferred development builds may be blocked by macOS security protections.
+A signed, notarized public release is not available yet.
+To uninstall, remove ARose through the system screen saver settings or delete
+only ARose.saver from your user's Library/Screen Savers folder.
+
+Česky
+Jde o lokálně podepsané, nenotarizované vývojové sestavení, nikoli veřejné
+vydání. Vyjasnění práv k původním částem ještě není dokončené; viz přiložené
+licenční upozornění. Cíl sestavení: macOS 13+, Apple Silicon i Intel. Ruční
+ověření zatím proběhlo pouze na Macu M2.
+
+Rozbalte ZIP ve Stažených souborech. Otevřete ARose.saver ve Finderu a dokončete
+instalaci. Případně jej zkopírujte do ~/Library/Screen Savers/ a znovu otevřete
+Nastavení systému. Vyberte ARose. Aplikace ARose Preview.app nabízí samostatný
+náhled a nastavení (Command-čárka). Pokud systémové Volby nereagují, ponechte
+otevřený systémový animovaný náhled a uložte volby přes ARose Preview. Aplikace
+výslovně potvrdí, zda nastavení převzal také běžící systémový spořič.
+Přenesené vývojové sestavení může macOS zablokovat. Podepsaná a notarizovaná
+veřejná verze zatím není dostupná.
+Pro odinstalaci odeberte ARose v systémovém nastavení nebo odstraňte pouze
+ARose.saver ze své složky Library/Screen Savers.

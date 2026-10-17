@@ -1,0 +1,53 @@
+name: Build and test development candidates
+on:
+  # Keep builds opt-in while the repository is private and source-only.
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build universal saver and preview
+        run: ./script/build_and_run.sh --build
+      - name: Test macOS bundles and localization
+        run: ./script/test.sh
+      - name: Compare Windows and Swift engines
+        run: ./script/test_windows_core.sh
+      - name: Package development candidate
+        run: ./script/package_candidate.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS-development
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 14
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify shared control sequences
+        run: python script/generate_windows_tables.py --check
+      - name: Configure Windows x64
+        run: cmake -S Windows -B build-windows -A x64
+      - name: Build native saver
+        run: cmake --build build-windows --config Release
+      - name: Test engine and short windowed launch
+        run: ctest --test-dir build-windows -C Release --output-on-failure
+      - name: Compare Windows engine with Swift reference
+        run: python script/check_engine_parity.py --executable build-windows/Release/arose-engine-tests.exe
+      - name: Package development candidate
+        run: ./script/package_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x64-development
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 14

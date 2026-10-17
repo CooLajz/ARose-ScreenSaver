@@ -1,0 +1,13 @@
+.build/
+dist/
+.DS_Store
+.codex/
+xcuserdata/
+*.xcuserstate
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.mobileprovision
+build-windows/

@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+MODE="${1:-run}"
+case "$MODE" in run|--build|--verify|--debug|--logs|--telemetry) ;; *) echo 'Použití: script/build_and_run.sh [--build|--verify|--debug|--logs|--telemetry]' >&2; exit 2;; esac
+if [[ "$MODE" != --build ]]; then pkill -x 'ARose Preview' >/dev/null 2>&1 || true; fi
+mkdir -p .build dist
+xcodebuild -project ARose.xcodeproj -scheme ARose -configuration Release \
+    -derivedDataPath "$ROOT_DIR/.build" -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build > .build/build.log 2>&1 || {
+    tail -80 .build/build.log; exit 1;
+}
+# File Provider may later reattach FinderInfo inside Documents. Keep clean ZIPs
+# assembled outside that directory as the durable installation artifacts.
+STAGING_DIR="$(mktemp -d /private/tmp/arose-package.XXXXXX)"
+trap 'rm -rf "$STAGING_DIR"' EXIT
+for name in 'ARose.saver' 'ARose Preview.app'; do
+    ditto --norsrc --noextattr ".build/Build/Products/Release/$name" "$STAGING_DIR/$name"
+    codesign --force --sign - --timestamp=none "$STAGING_DIR/$name"
+    codesign --verify --strict "$STAGING_DIR/$name"
+    ditto -c -k --norsrc --noextattr --keepParent "$STAGING_DIR/$name" "dist/$name.zip"
+    ditto --norsrc --noextattr "$STAGING_DIR/$name" "dist/$name"
+    xattr -dr com.apple.FinderInfo "dist/$name" 2>/dev/null || true
+    xattr -dr com.apple.ResourceFork "dist/$name" 2>/dev/null || true
+done
+echo 'Sestaveny balíčky a instalační ZIP archivy ve složce dist/'
+case "$MODE" in
+    --build) ;;
+    --debug) lldb -- 'dist/ARose Preview.app/Contents/MacOS/ARose Preview' ;;
+    --logs|--telemetry) open -n 'dist/ARose Preview.app'; /usr/bin/log stream --info --style compact --predicate 'process == "ARose Preview"' ;;
+    --verify) open -n 'dist/ARose Preview.app'; sleep 2; pgrep -x 'ARose Preview' >/dev/null; echo 'Aplikace běží.' ;;
+    run) open -n 'dist/ARose Preview.app' ;;
+esac

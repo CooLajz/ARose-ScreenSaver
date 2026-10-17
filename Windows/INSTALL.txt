@@ -1,0 +1,48 @@
+ARose ScreenSaver — Windows x64 DEVELOPMENT BUILD / VÝVOJOVÉ SESTAVENÍ
+
+English
+This initial Windows port is unsigned and has not yet been manually validated
+on Windows. Windows 11 x64 is the primary target. Third-party licensing
+clearance is pending; see THIRD_PARTY_NOTICES.md. No admin rights are required
+by the program itself. Work computers may prohibit custom screen savers.
+
+1. Extract the entire ZIP into a permanent folder you own, for example
+   %LOCALAPPDATA%\ARose ScreenSaver. Do not leave it in a temporary ZIP view.
+2. Right-click ARose.scr, choose Show more options (if shown), then Install.
+   Windows opens its screen saver settings. Select ARose, configure it and
+   choose Apply. Keep the file in that folder while the saver is selected.
+3. Configure and test using Settings and Preview in the Windows dialog.
+   Do not change your organization's security policy to run this build.
+
+Command-line alternatives (from the extracted folder):
+  .\ARose.scr /c    Settings
+  .\ARose.scr /s    Full-screen saver (move mouse or press a key to exit)
+  .\ARose.scr /w    Windowed preview (F1 settings, Space pause, R restart)
+The system also uses /p <window handle> for its embedded preview.
+Defaults: Modern, 80% glow, Long trail. The UI follows the preferred Windows
+languages (Czech/English, English fallback). Settings are stored only in
+HKCU\Software\CooLajz\ARose. Windows remains responsible for locking, passwords
+and idle timeout. The app does not alter those policies.
+To uninstall, select another saver or None in Windows settings, then delete
+the extracted ARose folder. Saved ARose preferences may remain in your profile.
+
+Česky
+Jde o první nepodepsanou Windows verzi, která zatím nebyla ručně ověřena přímo
+ve Windows. Hlavní cílová platforma je Windows 11 x64. Vyjasnění práv k původním
+částem ještě není dokončené; viz přiložené licenční upozornění. Program sám
+nevyžaduje správce. Pracovní počítač může vlastní spořiče zakazovat.
+
+1. Rozbalte celý ZIP do trvalé vlastní složky, například
+   %LOCALAPPDATA%\ARose ScreenSaver. Nespouštějte instalaci z náhledu ZIPu.
+2. Klikněte pravým tlačítkem na ARose.scr, případně zvolte Zobrazit další
+   možnosti, poté Nainstalovat. V systémovém dialogu vyberte ARose a Použít.
+   Dokud je spořič vybraný, ponechte soubor na stejném místě.
+3. Vyzkoušejte Nastavení a Náhled. Kvůli tomuto sestavení neměňte bezpečnostní
+   pravidla své organizace.
+
+Příkazy /c, /s a /w uvedené výše otevřou nastavení, celou obrazovku a okno.
+V okně slouží F1 pro nastavení, mezerník pro pauzu a R pro restart.
+Výchozí volby: Moderní, záře 80 %, Dlouhá stopa. Jazyk se vybírá podle Windows.
+Program nemění zamykání, hesla ani čas nečinnosti.
+Pro odinstalaci vyberte jiný spořič nebo Žádný a odstraňte rozbalenou složku.
+Uložené preference ARose mohou zůstat v uživatelském profilu.
