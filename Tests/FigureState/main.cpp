@@ -22,5 +22,10 @@ int main() {
             auto before=restored.savedFigure(); check(!restored.restoreFigure(invalid)); check(before==restored.savedFigure());
         }
     }
+    Engine longRun; auto longState=longRun.savedFigure(); longState[1]=999999999999LL;
+    check(longRun.restoreFigure(longState)); longRun.step();
+    check(longRun.frame==1000000000000ULL);
+    for(const auto& p:longRun.modernHistory.back()) check(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.hue));
+    Engine restored; check(restored.restoreFigure(longRun.savedFigure()));
     std::cout << "OK: Windows saved figures resume exact state and reject invalid data.\n";
 }

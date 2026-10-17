@@ -68,7 +68,29 @@ bool saveSettings(const Settings& s) {
     }
     RegCloseKey(key); return success;
 }
-uint64_t lastFigureSave = 0;
+uint64_t lastFigureSave = 0, appliedFigureReset = 0;
+void resetEngine();
+uint64_t figureResetGeneration() {
+    uint64_t generation=0; DWORD bytes=sizeof generation;
+    RegGetValueW(HKEY_CURRENT_USER,settingsKey,L"FigureReset",RRF_RT_REG_QWORD,nullptr,&generation,&bytes);
+    return generation;
+}
+bool forgetFigures() {
+    HKEY key=nullptr;
+    if(RegCreateKeyExW(HKEY_CURRENT_USER,settingsKey,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS) return false;
+    uint64_t generation=figureResetGeneration()+1;
+    bool ok=RegSetValueExW(key,L"FigureReset",0,REG_QWORD,reinterpret_cast<const BYTE*>(&generation),sizeof generation)==ERROR_SUCCESS;
+    for(const wchar_t* name:{L"FigureV1",L"PreviewFigureV1"}) {
+        auto result=RegDeleteValueW(key,name);
+        ok=(result==ERROR_SUCCESS || result==ERROR_FILE_NOT_FOUND) && ok;
+    }
+    RegCloseKey(key); return ok;
+}
+bool adoptFigureReset() {
+    auto generation=figureResetGeneration();
+    if(generation==appliedFigureReset) return false;
+    appliedFigureReset=generation; resetEngine(); return true;
+}
 const wchar_t* figureValue() { return windowed ? L"PreviewFigureV1" : L"FigureV1"; }
 void loadFigure() {
     if(preview || smoke || !settings.resumeFigure) return;
@@ -82,6 +104,7 @@ void saveFigure() {
     if(preview || smoke || !settings.resumeFigure || !engine || !engine->frame) return;
     HKEY key=nullptr;
     if(RegCreateKeyExW(HKEY_CURRENT_USER,settingsKey,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS) return;
+    if(adoptFigureReset()) { RegCloseKey(key); return; }
     auto state=engine->savedFigure();
     RegSetValueExW(key,figureValue(),0,REG_BINARY,reinterpret_cast<const BYTE*>(state.data()),sizeof state);
     RegCloseKey(key); lastFigureSave=engine->frame;
@@ -115,8 +138,11 @@ void updateDialog(HWND d) {
     SetDlgItemTextW(d, IDC_PERCENT, (std::to_wstring(value) + L" %").c_str());
 }
 INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
+    static bool forgetPending=false;
     constexpr int lengths[] = {1, 4, 8, 12, 16, 20};
     if (msg == WM_INITDIALOG) {
+        forgetPending=false;
+        SetDlgItemTextW(d,IDC_FORGET_FIGURE,tr(L"Forget saved figure",L"Zapomenout uložený obrazec"));
         SetWindowTextW(d, tr(L"ARose Settings", L"Nastavení ARose"));
         const int ids[] = {IDC_STYLE_LABEL,IDC_SPEED_LABEL,IDC_TRAIL_LABEL,IDC_PALETTE_LABEL,IDC_GLOW_LABEL,IDC_NOTE,IDOK,IDCANCEL};
         const wchar_t* en[] = {L"Style",L"Speed",L"Trail",L"Colors",L"Glow",L"Glow is available in Modern mode. Modern colors use a smooth rainbow.",L"Save",L"Cancel"};
@@ -147,6 +173,11 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     if(msg==WM_HSCROLL) { updateDialog(d); return TRUE; }
     if(msg==WM_COMMAND) {
         if(LOWORD(wp)==IDC_STYLE && HIWORD(wp)==CBN_SELCHANGE) { updateDialog(d); return TRUE; }
+        if(LOWORD(wp)==IDC_FORGET_FIGURE) {
+            forgetPending=true;
+            SetDlgItemTextW(d,IDC_FORGET_FIGURE,tr(L"Figure will reset after saving",L"Obrazec se resetuje po uložení"));
+            return TRUE;
+        }
         if(LOWORD(wp)==IDCANCEL) { EndDialog(d,IDCANCEL); return TRUE; }
         if(LOWORD(wp)==IDOK) {
             Settings s = settings;
@@ -155,7 +186,7 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
             s.appearance=selection(d,IDC_STYLE); s.speed=selection(d,IDC_SPEED)+1;
             int index=selection(d,IDC_TRAIL); s.tail=lengths[std::clamp(index,0,5)];
             s.palette=selection(d,IDC_PALETTE); s.glow=static_cast<int>(SendDlgItemMessageW(d,IDC_GLOW,TBM_GETPOS,0,0)); s.validate();
-            if(!saveSettings(s)) { MessageBoxW(d,tr(L"Settings could not be saved. Please check your user profile permissions.",L"Nastavení se nepodařilo uložit. Zkontrolujte oprávnění svého uživatelského profilu."),L"ARose",MB_OK|MB_ICONERROR); return TRUE; }
+            if(!saveSettings(s) || (forgetPending && !forgetFigures())) { MessageBoxW(d,tr(L"Settings could not be saved. Please check your user profile permissions.",L"Nastavení se nepodařilo uložit. Zkontrolujte oprávnění svého uživatelského profilu."),L"ARose",MB_OK|MB_ICONERROR); return TRUE; }
             settings=s; EndDialog(d,IDOK); return TRUE;
         }
     }
@@ -291,7 +322,7 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
     case WM_KEYDOWN: case WM_SYSKEYDOWN:
         if(preview) return 0;
         if(windowed) {
-            if(wp==VK_F1) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(settings.resumeFigure) engine->restoreFigure(state); paused=false; }
+            if(wp==VK_F1) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state); paused=false; }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }
             if(wp=='R') resetEngine();
             if(wp==VK_ESCAPE) PostQuitMessage(0);
@@ -339,7 +370,7 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     if(mode!=L's' && !preview && !windowed) return 2;
     if(preview && !IsWindow(parent)) return 2;
     if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,&factory))) return 1;
-    resetEngine(); loadFigure(); started=GetTickCount64(); GetCursorPos(&initialMouse);
+    appliedFigureReset=figureResetGeneration(); resetEngine(); loadFigure(); started=GetTickCount64(); GetCursorPos(&initialMouse);
     WNDCLASSW cls{}; cls.hInstance=instance; cls.lpfnWndProc=windowProc; cls.lpszClassName=L"ARoseScreenSaver";
     cls.hCursor=LoadCursorW(nullptr,IDC_ARROW); cls.hIcon=LoadIconW(instance,MAKEINTRESOURCEW(IDI_AROSE));
     if(!RegisterClassW(&cls)) { release(factory); return 1; }
@@ -348,6 +379,7 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     else EnumDisplayMonitors(nullptr,nullptr,monitorProc,0);
     if(windows.empty()) { release(factory); return 1; }
     MSG msg{};
+    auto lastResetCheck=AnimationClock::now();
     bool running = true;
     int exitCode = 0;
     while(running) {
@@ -356,6 +388,9 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
             TranslateMessage(&msg); DispatchMessageW(&msg);
         }
         if(!running) break;
+        if(AnimationClock::now()-lastResetCheck>=std::chrono::seconds(1)) {
+            adoptFigureReset(); lastResetCheck=AnimationClock::now();
+        }
         if(smoke && GetTickCount64()-started>1500) { exitCode=renderedFrames>0?0:1; break; }
         if(preview) {
             HWND parent=GetParent(windows.front());

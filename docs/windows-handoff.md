@@ -96,3 +96,10 @@ On Windows, additionally verify `/s` exit/restart, persistence across reboot,
 checkbox save/cancel, `/p` isolation, the separate `/w` bookmark, and a forced
 termination after 30 seconds. Registry persistence and the dialog still need
 native Windows runtime verification.
+
+The **Forget saved figure** button is pending until **Save**; **Cancel** leaves
+both bookmarks intact. Saving removes both values and increments the QWORD
+`FigureReset` generation. Running instances check it once per second and before
+checkpointing so an old session does not intentionally restore its old state.
+Verify reset through `/c` and F1 in `/w`, with resume both enabled and disabled,
+and with another instance running. These registry/UI paths require Windows.

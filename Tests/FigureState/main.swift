@@ -26,3 +26,11 @@ for modern in [false, true] {
     precondition(!restored.restoreFigure([]))
 }
 print("OK: saved figures resume exact geometry, rotation, colors and simulation; invalid states rejected.")
+
+let longRun = RoseEngine(); longRun.modern = true
+var longState = longRun.savedFigure(); longState[1] = 999_999_999_999
+precondition(longRun.restoreFigure(longState))
+longRun.step()
+precondition(longRun.frame == 1_000_000_000_000)
+precondition(longRun.modernHistory.last!.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.hue.isFinite })
+precondition(RoseEngine().restoreFigure(longRun.savedFigure()))

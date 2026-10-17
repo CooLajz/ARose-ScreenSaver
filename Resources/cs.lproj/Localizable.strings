@@ -48,3 +48,7 @@
 "CPU normalization explanation" = "CPU čas procesu: u první hodnoty odpovídá 100 % jednomu logickému jádru, u druhé všem logickým jádrům.";
 
 "Resume from last figure" = "Pokračovat od posledního obrazce";
+
+"Forget saved figure" = "Zapomenout uložený obrazec";
+
+"Figure will reset after saving" = "Obrazec se resetuje po uložení";

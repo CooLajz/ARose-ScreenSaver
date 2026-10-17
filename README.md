@@ -111,3 +111,7 @@ it shares the system saver bookmark. The standalone
 macOS preview and Windows `/w` window keep their own separate position. Disabling
 the option ignores the bookmark without deleting it. Invalid or unsupported
 saved states are ignored. No files are sent over the network.
+
+To start over, click **Forget saved figure**, then **Save**. This clears both
+the saver and standalone preview bookmarks without changing the resume option.
+**Cancel** preserves the original position.

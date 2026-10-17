@@ -2,6 +2,10 @@
 
 ## Unreleased — public distribution preparation
 
+- Add a CS/EN saved-figure reset button on macOS and Windows, applied only on
+  Save. Clear both bookmarks and prevent stale instances from restoring old
+  progress. Test Save/Cancel and simulation at one trillion frames.
+
 - Transfer macOS bookmark ownership when a retained legacy view stops receiving
   animation frames, and prevent its late stop from overwriting newer progress.
 

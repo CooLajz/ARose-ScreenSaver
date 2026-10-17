@@ -14,13 +14,13 @@ precondition(fresh.integer(forKey: "tail") == 4)
 precondition(fresh.double(forKey: "glow") == 0.2)
 
 let id = UUID().uuidString
-let valid: [String: Double] = ["appearance": 1, "speed": 2, "tail": 16, "palette": 2, "glow": 0.81, "debugCPU": 0, "resumeFigure": 0]
+let valid: [String: Double] = ["appearance": 1, "speed": 2, "tail": 16, "palette": 2, "glow": 0.81, "debugCPU": 0, "resumeFigure": 0, "figureReset": 0]
 func decode(_ values: [String: Double]?) -> RoseSettingsBridge.Message? {
     RoseSettingsBridge.decode(RoseSettingsBridge.encode(.init(id: id, values: values)))
 }
 precondition(decode(valid)?.values == valid)
 precondition(decode(nil)?.id == id)
-for (key, bad) in [("appearance", 2.0), ("speed", 2.5), ("tail", 3.0), ("palette", -1.0), ("glow", 1.01), ("debugCPU", 0.5), ("resumeFigure", 0.5)] {
+for (key, bad) in [("appearance", 2.0), ("speed", 2.5), ("tail", 3.0), ("palette", -1.0), ("glow", 1.01), ("debugCPU", 0.5), ("resumeFigure", 0.5), ("figureReset", -1), ("figureReset", 1.5)] {
     var values = valid
     values[key] = bad
     precondition(decode(values) == nil)
@@ -140,3 +140,59 @@ do {
     next.stopAnimation()
 }
 print("OK: retained inactive writers relinquish their lease; late stops cannot roll back the bookmark.")
+
+// A reset generation clears both bookmarks and prevents a retained view from
+// resurrecting its old state during a late stop/checkpoint.
+do {
+    let name = "cz.coolajz.ARose.reset-tests.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.set(true, forKey: "resumeFigure")
+    let rect = NSRect(x: 0, y: 0, width: 800, height: 600)
+    let old = ARoseView(frame: rect, isPreview: false, settings: prefs)!
+    old.startAnimation()
+    for _ in 0..<100 { old.engine.step() }
+    old.saveFigure()
+    prefs.set(old.engine.savedFigure(), forKey: "previewFigureState.v1")
+    prefs.set(1, forKey: "figureReset")
+    prefs.removeObject(forKey: "figureState.v1")
+    prefs.removeObject(forKey: "previewFigureState.v1")
+    old.saveFigure()
+    precondition(old.engine.frame == 0)
+    precondition(prefs.array(forKey: "figureState.v1") == nil)
+    precondition(prefs.array(forKey: "previewFigureState.v1") == nil)
+    old.stopAnimation()
+    let next = ARoseView(frame: rect, isPreview: false, settings: prefs)!
+    next.startAnimation(); precondition(next.engine.frame == 0)
+    next.engine.step(); next.saveFigure(); next.stopAnimation()
+    precondition((prefs.array(forKey: "figureState.v1") as? [Int])?[1] == 1)
+}
+print("OK: reset clears bookmarks and stale writers cannot restore old progress.")
+
+// The reset button is Save-gated: Cancel must preserve both bookmarks.
+do {
+    _ = NSApplication.shared
+    let name = "cz.coolajz.ARose.reset-ui-tests.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.register(defaults: ARoseView.initialSettings)
+    prefs.set(true, forKey: "resumeFigure")
+    let old = RoseEngine(); for _ in 0..<80 { old.step() }
+    prefs.set(old.savedFigure(), forKey: "figureState.v1")
+    prefs.set(old.savedFigure(), forKey: "previewFigureState.v1")
+    var applied=false
+    let options = RoseOptions(defaults: prefs) { applied=true }
+    options.reload()
+    options.perform(NSSelectorFromString("forgetAction"))
+    precondition(prefs.array(forKey: "figureState.v1") != nil)
+    options.perform(NSSelectorFromString("cancelAction"))
+    precondition(!applied && prefs.double(forKey: "figureReset") == 0)
+    options.reload()
+    options.perform(NSSelectorFromString("forgetAction"))
+    options.perform(NSSelectorFromString("saveAction"))
+    precondition(applied && prefs.double(forKey: "figureReset") > 0)
+    precondition(prefs.array(forKey: "figureState.v1") == nil)
+    precondition(prefs.array(forKey: "previewFigureState.v1") == nil)
+    precondition(prefs.bool(forKey: "resumeFigure"))
+}
+print("OK: reset requires Save, Cancel preserves progress, resume preference stays enabled.")

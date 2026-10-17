@@ -51,7 +51,7 @@ final class RoseCPUMeter {
 
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
-    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false]
+    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0]
     private(set) var engine = RoseEngine()
     private var lastTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
@@ -82,6 +82,7 @@ final class ARoseView: ScreenSaverView {
     private static weak var figureWriter: ARoseView?
     private var figureSession = false
     private var lastFigureSave = 0
+    private var figureResetGeneration = 0.0
     private var lastFigureActivity: TimeInterval = 0
     var paused = false
     var configurationSaved: (() -> Void)?
@@ -110,7 +111,7 @@ final class ARoseView: ScreenSaverView {
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     private func configuration() -> [Double] {
-        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure"].map { defaults.double(forKey: $0) }
+        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
@@ -130,9 +131,18 @@ final class ARoseView: ScreenSaverView {
         cpuMeter = RoseCPUMeter()
         super.startAnimation()
     }
+    @discardableResult func adoptFigureReset() -> Bool {
+        defaults.synchronize()
+        let generation = defaults.double(forKey: "figureReset")
+        guard generation != figureResetGeneration else { return false }
+        reset()
+        defaults.synchronize()
+        return true
+    }
     func saveFigure() {
         guard figureSession, !isPreview, Self.figureWriter === self,
               defaults.bool(forKey: "resumeFigure"), engine.frame > 0 else { return }
+        guard !adoptFigureReset() else { return }
         defaults.set(engine.savedFigure(), forKey: figureStorageKey)
         guard defaults.synchronize() else {
             configurationLog.error("Figure checkpoint could not be synchronized")
@@ -166,12 +176,14 @@ final class ARoseView: ScreenSaverView {
         lastTime = 0; accumulator = 0
     }
     func applyConfiguration() {
+        if adoptFigureReset() { return }
         let state = defaults.bool(forKey: "resumeFigure") ? engine.savedFigure() : nil
         reset()
         if let state { engine.restoreFigure(state) }
     }
     func reset() {
         loadedConfiguration = configuration()
+        figureResetGeneration = defaults.double(forKey: "figureReset")
         lastFigureSave = 0
         debugCPU = defaults.bool(forKey: "debugCPU")
         cpuMeter = RoseCPUMeter()
@@ -426,7 +438,7 @@ final class ARoseView: ScreenSaverView {
 enum RoseSettingsBridge {
     static let request = Notification.Name("cz.coolajz.ARose.settings.request")
     static let response = Notification.Name("cz.coolajz.ARose.settings.response")
-    static let keys = ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure"]
+    static let keys = ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset"]
     static let views = NSHashTable<ARoseView>.weakObjects()
     static var observer: NSObjectProtocol?
 
@@ -451,7 +463,9 @@ enum RoseSettingsBridge {
                   [0.0, 1, 2].contains(values["palette"]!),
                   (0...1).contains(values["glow"]!),
                   [0.0, 1.0].contains(values["debugCPU"]!),
-                  [0.0, 1.0].contains(values["resumeFigure"]!) else { return nil }
+                  [0.0, 1.0].contains(values["resumeFigure"]!),
+                  (0...1_000_000_000_000).contains(values["figureReset"]!),
+                  values["figureReset"]! == values["figureReset"]!.rounded() else { return nil }
         }
         return message
     }
@@ -467,6 +481,10 @@ enum RoseSettingsBridge {
                   let defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose") else { return }
             defaults.synchronize()
             if let values = message.values {
+                if values["figureReset"] != defaults.double(forKey: "figureReset") {
+                    defaults.removeObject(forKey: "figureState.v1")
+                    defaults.removeObject(forKey: "previewFigureState.v1")
+                }
                 for (key, value) in values { defaults.set(value, forKey: key) }
                 guard defaults.synchronize() else { return }
                 for view in views.allObjects { view.applyConfiguration() }
@@ -487,6 +505,8 @@ final class RoseOptions: NSObject {
     private let appearance = NSPopUpButton()
     private let debugCPU = NSButton(checkboxWithTitle: roseText("Debug: show process CPU usage"), target: nil, action: nil)
     private let resumeFigure = NSButton(checkboxWithTitle: roseText("Resume from last figure"), target: nil, action: nil)
+    private var forgetPending = false
+    private lazy var forgetButton = NSButton(title: roseText("Forget saved figure"), target: self, action: #selector(forgetAction))
     private var originalPalette = 2
     private let glowSlider = NSSlider(value: 0, minValue: 0, maxValue: 100, target: nil, action: nil)
     private let glowValue = NSTextField(labelWithString: roseText("Off"))
@@ -495,13 +515,13 @@ final class RoseOptions: NSObject {
 
     init(defaults: UserDefaults, apply: @escaping () -> Void) {
         self.defaults = defaults; self.apply = apply
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 520),
                           styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
         // Retain the window for this presentation; subsequent requests get fresh content.
         window.isReleasedWhenClosed = false
         let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 480))
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 520))
         window.contentViewController = content
         window.title = roseText("ARose Settings")
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
@@ -531,6 +551,7 @@ final class RoseOptions: NSObject {
         stack.addArrangedSubview(NSStackView(views: [glowLabel, glowSlider, glowValue]))
         debugCPU.toolTip = roseText("CPU normalization explanation")
         stack.addArrangedSubview(resumeFigure)
+        stack.addArrangedSubview(forgetButton)
         stack.addArrangedSubview(debugCPU)
         let cancel = NSButton(title: roseText("Cancel"), target: self, action: #selector(cancelAction))
         let save = NSButton(title: roseText("Save"), target: self, action: #selector(saveAction))
@@ -543,6 +564,8 @@ final class RoseOptions: NSObject {
             stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24)])
     }
     func reload() {
+        forgetPending = false
+        forgetButton.title = roseText("Forget saved figure")
         defaults.synchronize()
         speed.selectItem(at: min(4, max(0, defaults.integer(forKey: "speed") - 1)))
         tail.selectItem(at: tailValues.firstIndex(of: defaults.integer(forKey: "tail")) ?? 4)
@@ -584,7 +607,16 @@ final class RoseOptions: NSObject {
         configurationLog.notice("Configuration cancelled")
         dismiss()
     }
+    @objc private func forgetAction() {
+        forgetPending = true
+        forgetButton.title = roseText("Figure will reset after saving")
+    }
     @objc private func saveAction() {
+        if forgetPending {
+            defaults.set(max(defaults.double(forKey: "figureReset") + 1, Date().timeIntervalSince1970.rounded()), forKey: "figureReset")
+            defaults.removeObject(forKey: "figureState.v1")
+            defaults.removeObject(forKey: "previewFigureState.v1")
+        }
         defaults.set(resumeFigure.state == .on, forKey: "resumeFigure")
         defaults.set(debugCPU.state == .on, forKey: "debugCPU")
         defaults.set(speed.indexOfSelectedItem + 1, forKey: "speed")

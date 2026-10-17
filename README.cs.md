@@ -68,7 +68,7 @@ Při přepnutí podoby se animace spustí od začátku. Volba původní palety z
 3. Upravte nastavení a stiskněte Uložit. Potvrzení „Nastavení převzal i systémový spořič“ znamená, že hostitel potvrdil převzetí hodnot a synchronizaci vlastních předvoleb.
 4. Pokud hostitel neodpoví, aplikace oznámí, že změny jsou uložené pouze v náhledu. Spusťte systémový náhled a uložení zopakujte. Přenos se neodkládá do příštího spuštění spořiče.
 
-Přenos probíhá lokálními systémovými oznámeními, bez sítě a bez přímého přepisování souborů předvoleb jiného procesu. Přijímá pouze sedm ověřených voleb ARose. Lokálně byl ověřen přenos změny záře, potvrzení od obou běžících hostitelů a zachování hodnoty v novém hostiteli po restartu. Toto řešení obchází problém se systémovým dialogem; neopravuje chybu macOS v tlačítku Volby. Stejné omezení popisuje také [autor Afterglow](https://morphing.cloud/afterglow/help/#known-issues).
+Přenos probíhá lokálními systémovými oznámeními, bez sítě a bez přímého přepisování souborů předvoleb jiného procesu. Přijímá pouze osm ověřených voleb ARose. Lokálně byl ověřen přenos změny záře, potvrzení od obou běžících hostitelů a zachování hodnoty v novém hostiteli po restartu. Toto řešení obchází problém se systémovým dialogem; neopravuje chybu macOS v tlačítku Volby. Stejné omezení popisuje také [autor Afterglow](https://morphing.cloud/afterglow/help/#known-issues).
 
 Při lokálním ověření na macOS 27.0.1 byl zachycen přerušovaný pád systémového procesu `legacyScreenSaver`: při požadavku `presentConfiguration` přistoupil k první položce prázdného pole `viewControllers`, ještě před předáním požadavku konfiguračnímu oknu modulu. Náhled proto může zmizet nebo se po obnovení hostitele znovu rozběhnout. Pokud Volby nereagují, zavřete výběr spořičů tlačítkem Hotovo, ukončete Nastavení systému a znovu je otevřete. Tento postup není zárukou odstranění systémové chyby.
 
@@ -129,3 +129,7 @@ sdílí jeho uloženou pozici. Samostatná náhledová aplikace
 pro macOS a okno Windows `/w` mají vlastní oddělenou pozici. Vypnutím volby se
 uložený stav přestane používat, ale nesmaže se. Neplatné nebo nepodporované
 uložené stavy se ignorují. Žádná data se neposílají po síti.
+
+Pro návrat na začátek stiskněte **Zapomenout uložený obrazec** a poté **Uložit**.
+Smaže se pozice spořiče i samostatného náhledu; volba pokračování zůstane beze změny.
+Tlačítko **Zrušit** zachová původní pozici.

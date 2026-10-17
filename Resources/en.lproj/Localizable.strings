@@ -48,3 +48,7 @@
 "CPU normalization explanation" = "Process CPU time: 100% equals one logical core in the first value, all logical cores in the second.";
 
 "Resume from last figure" = "Resume from last figure";
+
+"Forget saved figure" = "Forget saved figure";
+
+"Figure will reset after saving" = "Figure will reset after saving";
