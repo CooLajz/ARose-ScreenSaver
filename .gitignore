@@ -15,3 +15,5 @@ build-windows/
 # Local masters; README embeds the GitHub-hosted video.
 /docs/demo_video.mov
 /docs/demo_video.mp4
+/docs/demo_video2.mov
+/docs/demo_video2.mp4

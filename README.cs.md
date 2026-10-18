@@ -6,7 +6,7 @@
 
 **ARose v pohybu**
 
-https://github.com/user-attachments/assets/e13a567a-e7d0-4941-a7a4-8a1b727e00d8
+https://github.com/user-attachments/assets/9291aa0f-5f54-4f44-aee9-c5f4ac4c0b39
 
 ## Příběh návratu
 
