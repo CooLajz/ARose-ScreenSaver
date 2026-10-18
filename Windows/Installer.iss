@@ -2,6 +2,9 @@
 #ifndef AppVersion
   #define AppVersion "1.0.3"
 #endif
+#ifndef AppBuild
+  #error AppBuild is required; build through script/package_windows.ps1
+#endif
 #ifndef BinaryDir
   #define BinaryDir "..\build-windows\Release"
 #endif
@@ -9,6 +12,7 @@
 AppId={{D4674B0D-320B-43DA-AEB5-E245D9518F01}
 AppName=ARose ScreenSaver
 AppVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}.{#AppBuild}
 AppPublisher=CooLajz
 AppPublisherURL=https://github.com/CooLajz/ARose-ScreenSaver
 DefaultDirName={autopf}\ARose ScreenSaver

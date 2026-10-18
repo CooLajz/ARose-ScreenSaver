@@ -79,6 +79,41 @@ inline HRESULT schedule(bool enable) {
     ComPtr<IRegisteredTask> registered;
     return folder->RegisterTaskDefinition(Bstr(name.c_str()),task.Get(),TASK_CREATE_OR_UPDATE,empty,empty,TASK_LOGON_INTERACTIVE_TOKEN,empty,&registered);
 }
+// Keep an existing correct task unchanged; reinstall may have removed it while
+// the user's opt-in preference survived. Do not rebuild it on every app launch.
+inline HRESULT ensureSchedule() {
+    using Microsoft::WRL::ComPtr;
+    auto sid=userSid(); if(sid.empty()) return E_FAIL;
+    ComPtr<ITaskService> service;
+    HRESULT hr=CoCreateInstance(CLSID_TaskScheduler,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&service));
+    if(FAILED(hr)) return hr;
+    VARIANT empty; VariantInit(&empty);
+    if(FAILED(hr=service->Connect(empty,empty,empty,empty))) return hr;
+    ComPtr<ITaskFolder> folder;
+    if(FAILED(hr=service->GetFolder(Bstr(L"\\"),&folder))) return hr;
+    ComPtr<IRegisteredTask> task;
+    hr=folder->GetTask(Bstr((L"ARose Update Check-"+sid).c_str()),&task);
+    if(hr==HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) return schedule(true);
+    if(FAILED(hr)) return hr;
+    VARIANT_BOOL enabled=VARIANT_FALSE;
+    ComPtr<ITaskDefinition> definition; ComPtr<IActionCollection> actions;
+    ComPtr<IAction> action; ComPtr<IExecAction> exec;
+    LONG count=0;
+    if(FAILED(hr=task->get_Enabled(&enabled)) || FAILED(hr=task->get_Definition(&definition)) ||
+       FAILED(hr=definition->get_Actions(&actions)) || FAILED(hr=actions->get_Count(&count))) return hr;
+    // Respect a task explicitly disabled outside ARose; the user can opt in
+    // again from the checkbox instead of having app launch silently enable it.
+    if(enabled!=VARIANT_TRUE) return S_FALSE;
+    if(count!=1) return schedule(true);
+    if(FAILED(hr=actions->get_Item(1,&action)) || FAILED(hr=action.As(&exec))) return hr;
+    Bstr path(L""), arguments(L"");
+    SysFreeString(path.value); path.value=nullptr;
+    SysFreeString(arguments.value); arguments.value=nullptr;
+    if(FAILED(hr=exec->get_Path(&path.value)) || FAILED(hr=exec->get_Arguments(&arguments.value))) return hr;
+    if(!path.value || !arguments.value || _wcsicmp(path.value,executable().c_str())!=0 ||
+       std::wstring(arguments.value)!=L"/weekly") return schedule(true);
+    return S_OK;
+}
 // Administrative uninstall removes only tasks that launch this installed binary.
 inline HRESULT removeInstalledTasks() {
     using Microsoft::WRL::ComPtr;

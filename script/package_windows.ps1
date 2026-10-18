@@ -14,7 +14,9 @@ $binaryDir = Split-Path (Resolve-Path $Binary) -Parent
 $compilerPath = if ($iscc -is [System.IO.FileInfo]) { $iscc.FullName } else { $iscc.Source }
 $version = python script/release_version.py --format version
 if ($LASTEXITCODE -ne 0) { throw "Release metadata mismatch" }
-& $compilerPath "/DBinaryDir=$binaryDir" "/DAppVersion=$version" Windows/Installer.iss
+$appBuild = python script/release_version.py --format build
+if ($LASTEXITCODE -ne 0) { throw "Release build metadata mismatch" }
+& $compilerPath "/DBinaryDir=$binaryDir" "/DAppVersion=$version" "/DAppBuild=$appBuild" Windows/Installer.iss
 if ($LASTEXITCODE -ne 0) { throw "Windows installer packaging failed ($LASTEXITCODE)" }
 
 Get-ChildItem dist/releases -File | Where-Object { $_.Extension -in '.exe','.scr' } | ForEach-Object {

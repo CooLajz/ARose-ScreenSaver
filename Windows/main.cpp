@@ -219,9 +219,11 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     }
     return FALSE;
 }
-void showSettings(HWND parent) {
-    if(DialogBoxParamW(instance,MAKEINTRESOURCEW(IDD_SETTINGS),parent,settingsProc,0)==-1)
+bool showSettings(HWND parent) {
+    const auto result=DialogBoxParamW(instance,MAKEINTRESOURCEW(IDD_SETTINGS),parent,settingsProc,0);
+    if(result==-1)
         MessageBoxW(parent,tr(L"Unable to open ARose settings.",L"Nastavení ARose se nepodařilo otevřít."),L"ARose",MB_OK|MB_ICONERROR);
+    return result==IDOK;
 }
 struct Renderer {
     ID2D1HwndRenderTarget* target=nullptr;
@@ -414,10 +416,23 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
     case WM_PAINT: { PAINTSTRUCT ps; BeginPaint(w,&ps); if(renderer) renderer->draw(w); EndPaint(w,&ps); return 0; }
     case WM_SIZE: if(renderer && renderer->target && LOWORD(lp) && HIWORD(lp)) renderer->target->Resize(D2D1::SizeU(LOWORD(lp),HIWORD(lp))); InvalidateRect(w,nullptr,FALSE); return 0;
     case WM_DPICHANGED: if(!preview) { auto r=reinterpret_cast<RECT*>(lp); SetWindowPos(w,nullptr,r->left,r->top,r->right-r->left,r->bottom-r->top,SWP_NOZORDER|SWP_NOACTIVATE); } return 0;
-    case WM_KEYDOWN: case WM_SYSKEYDOWN:
+    case WM_SYSKEYDOWN:
+        if(preview || windowed) return DefWindowProcW(w,msg,wp,lp);
+        [[fallthrough]];
+    case WM_KEYDOWN:
         if(preview) return 0;
         if(windowed) {
-            if(wp==VK_F1 && !benchmark.enabled) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state); paused=false; }
+            if(wp==VK_F1 && !benchmark.enabled && !(lp & (1LL<<30))) {
+                const bool wasPaused=paused;
+                paused=true;
+                const auto state=engine->savedFigure();
+                if(showSettings(w)) {
+                    resetEngine();
+                    if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state);
+                }
+                paused=wasPaused;
+                lastStep=AnimationClock::now();
+            }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }
             if(wp=='R') resetEngine();
             if(wp=='F' && renderer && !(lp & (1LL<<30))) renderer->toggleFullScreen(w);

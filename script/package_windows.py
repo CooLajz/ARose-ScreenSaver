@@ -7,6 +7,7 @@ import plistlib
 import struct
 import zipfile
 from pathlib import Path
+from release_payload import windows_version
 
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -30,19 +31,17 @@ with (root/'Resources/Saver-Info.plist').open('rb') as f:
     info = plistlib.load(f)
 version = info['CFBundleShortVersionString']
 expected = tuple(map(int, version.split('.'))) + (int(info['CFBundleVersion']),)
-signature = payload.find(struct.pack('<I', 0xFEEF04BD))
-if signature < 0:
-    raise SystemExit('Missing Windows version resource')
-ms, ls = struct.unpack_from('<II', payload, signature+8)
-if (ms >> 16, ms & 65535, ls >> 16, ls & 65535) != expected:
+if windows_version(binary) != expected:
     raise SystemExit('Windows and macOS versions differ; update resources and rebuild')
+companion = binary.parent/'ARose Control.exe'
+if companion.is_file() and windows_version(companion) != expected:
+    raise SystemExit('Windows companion version/build differs; rebuild before packaging')
 name = f'ARose-ScreenSaver-v{version}-Windows-x64-{args.label}'
 folder = root/'dist/releases'
 folder.mkdir(parents=True, exist_ok=True)
 archive = folder/f'{name}.zip'
 with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as z:
     z.write(binary, f'{name}/ARose.scr')
-    companion = binary.parent/'ARose Control.exe'
     updater = binary.parent/'WinSparkle.dll'
     if companion.is_file() and updater.is_file():
         z.write(companion, f'{name}/ARose Control.exe')

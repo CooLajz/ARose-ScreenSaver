@@ -14,6 +14,7 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 from prepare_signing_tools import prepare
+from release_payload import validate_payload
 
 ROOT = Path(__file__).resolve().parent.parent
 NS = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
@@ -58,16 +59,18 @@ def main():
     with (ROOT/'Resources/Preview-Info.plist').open('rb') as f:
         info = plistlib.load(f)
     version, build = info['CFBundleShortVersionString'], info['CFBundleVersion']
-    signer = prepare()
-    verifier = ROOT/'.build/verify_update'
-    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(ROOT/'.build/ModuleCache'),
-                    str(ROOT/'script/verify_update.swift'), '-o', str(verifier)], check=True)
     files = {
         'macos': args.directory/f'ARose-ScreenSaver-v{version}-macOS-update.zip',
         'windows': args.directory/f'ARose-ScreenSaver-v{version}-Windows-x64-Setup.exe',
     }
-    for payload in files.values():
+    for platform, payload in files.items():
         if not payload.is_file(): raise SystemExit(f'Missing final payload: {payload.name}')
+        validate_payload(payload, platform, version, build)
+    # Validate both payloads before accessing the signing key or replacing feeds.
+    signer = prepare()
+    verifier = ROOT/'.build/verify_update'
+    subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(ROOT/'.build/ModuleCache'),
+                    str(ROOT/'script/verify_update.swift'), '-o', str(verifier)], check=True)
     for platform, payload in files.items():
         signature = subprocess.check_output([str(signer), '--account', 'cz.coolajz.ARose', '-p', str(payload)], text=True).strip()
         subprocess.run([str(verifier), str(payload), signature, info['SUPublicEDKey']], check=True)

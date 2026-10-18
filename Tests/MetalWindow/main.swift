@@ -10,6 +10,8 @@ final class WindowTest: NSObject, NSApplicationDelegate {
     var steadyResult = ""
     var displayRate = ""
     var startupAllocations = 0
+    var pausedSubmissions = 0
+    var pausedFrame = 0
     let settings = UserDefaults(suiteName: "cz.coolajz.ARose.window-test.\(UUID().uuidString)")!
     func applicationDidFinishLaunching(_ notification: Notification) {
         settings.setVolatileDomain(["appearance": 1, "speed": 3, "palette": 2, "tail": 16,
@@ -53,6 +55,23 @@ final class WindowTest: NSObject, NSApplicationDelegate {
             if ticks == 240 {
                 precondition(view.metalFrameStatistics!.submitted > beforeResizeCount,
                              "Paused resize did not refresh Metal")
+                pausedSubmissions = view.metalFrameStatistics!.submitted
+                pausedFrame = view.engine.frame
+                view.advanceFrames(500)
+            }
+            if ticks == 250 {
+                precondition(view.paused && view.engine.frame == pausedFrame + 500,
+                             "Manual advance changed pause or failed to advance the figure")
+                precondition(view.metalFrameStatistics!.submitted > pausedSubmissions,
+                             "Paused advance did not refresh Metal")
+                pausedSubmissions = view.metalFrameStatistics!.submitted
+                view.restartAnimation()
+            }
+            if ticks == 260 {
+                precondition(view.paused && view.engine.frame == 0,
+                             "Manual restart changed pause or failed to reset the figure")
+                precondition(view.metalFrameStatistics!.submitted > pausedSubmissions,
+                             "Paused restart did not clear the old Metal image")
                 view.paused = false
             }
             if ticks == 600 { view.glow = 0; view.needsDisplay = true }
@@ -63,7 +82,7 @@ final class WindowTest: NSObject, NSApplicationDelegate {
             if ticks == 900 { view.reset() }
             if ticks == 1100 {
                 precondition(view.layer?.sublayers?.contains(where: { $0 is CAMetalLayer && !$0.isHidden }) == true)
-                try! "OK: Metal window, paused resize, glow toggle and reset. \(steadyResult) \(displayRate)\n".write(toFile: CommandLine.arguments[1], atomically: true, encoding: .utf8)
+                try! "OK: Metal window, paused resize/advance/restart, glow toggle and reset. \(steadyResult) \(displayRate)\n".write(toFile: CommandLine.arguments[1], atomically: true, encoding: .utf8)
                 view.stopAnimation()
                 timer?.invalidate(); NSApp.terminate(nil)
             }

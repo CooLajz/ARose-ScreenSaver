@@ -44,6 +44,11 @@ disable checking before removing the app. Every installation requires user
 confirmation in the updater; downloads and signature validation then proceed
 automatically. No telemetry or GitHub credentials are used.
 
+On Windows, opening the installed companion restores a missing weekly task if
+the saved opt-in is still enabled, including after reinstall. An unchanged task
+keeps its schedule. Disabling the task directly in Windows is respected and
+clears the companion's opt-in; enabling the checkbox registers it again.
+
 ## Signing and release assets
 
 The Ed25519 private key is in the signing Mac's login Keychain, account
@@ -69,6 +74,11 @@ The signing tool is kept at a stable path under `~/Library/Application Support/A
 
 This signs both final payloads from Keychain, verifies the signatures, and emits
 `appcast-macos.xml` and `appcast-windows.xml`. It never publishes anything.
+Before accessing Keychain, it checks the version and build inside the macOS app
+and embedded extension and in the Windows installer's PE version resource.
+Rebuild older Windows installers with `script/package_windows.ps1`: the script
+now passes the shared build number to Inno Setup's `VersionInfoVersion`.
+Both payloads must match the source release metadata before either feed is written.
 Upload **both feeds and both payloads on every stable release**. Feeds are
 accessed through GitHub's `/releases/latest/download/…` route; their payload
 URLs point to the immutable version tag. Do not rename/modify payloads after

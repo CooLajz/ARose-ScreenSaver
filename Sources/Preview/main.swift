@@ -79,8 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let sheet = rose.configureSheet { window.beginSheet(sheet) }
     }
     @objc func pause() { rose.paused.toggle() }
-    @objc func restart() { rose.reset() }
-    @objc func advance() { for _ in 0..<500 { rose.engine.step() }; rose.needsDisplay = true }
+    @objc func restart() { rose.restartAnimation() }
+    @objc func advance() { rose.advanceFrames(500) }
     @objc func fullScreen() { window.toggleFullScreen(nil) }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { timer?.invalidate(); updateTimer?.invalidate(); rose?.stopAnimation() }

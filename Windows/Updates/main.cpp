@@ -14,6 +14,7 @@
 namespace {
 constexpr wchar_t key[]=L"Software\\CooLajz\\ARose\\Updates";
 bool czech=false, background=false;
+bool weeklyTaskReady=false;
 DWORD mainThread=0;
 HWND window=nullptr;
 const wchar_t* tr(const wchar_t* en,const wchar_t* cs){return czech?cs:en;}
@@ -51,7 +52,7 @@ bool activeDesktop() {
 }
 bool scheduledCheck() {
     auto now=static_cast<uint64_t>(std::time(nullptr));
-    if(installed() && read(L"Weekly") && activeDesktop() && updates::due(read(L"LastAttempt"),now)) {
+    if((background || weeklyTaskReady) && installed() && read(L"Weekly") && activeDesktop() && updates::due(read(L"LastAttempt"),now)) {
         write(L"LastAttempt",now); win_sparkle_check_update_without_ui(); return true;
     }
     return false;
@@ -91,7 +92,17 @@ INT_PTR CALLBACK dialog(HWND h,UINT message,WPARAM wp,LPARAM) {
         SetDlgItemTextW(h,2005,tr(L"Updates are downloaded and installed after confirmation. Settings and saved figures are preserved.",L"Aktualizace se stáhnou a nainstalují po potvrzení. Nastavení a uložené obrazce zůstanou zachovány."));
         SetDlgItemTextW(h,2006,(std::wstring(L"ARose ")+AROSE_DISPLAY_VERSION).c_str());
         SetDlgItemTextW(h,IDCANCEL,tr(L"Close",L"Zavřít"));
-        CheckDlgButton(h,2002,read(L"Weekly")?BST_CHECKED:BST_UNCHECKED); return TRUE;
+        const bool weekly=installed() && read(L"Weekly");
+        auto scheduleStatus=weekly?updates::ensureSchedule():S_FALSE;
+        // A task disabled in Windows is an explicit opt-out, not a missing task.
+        if(weekly && scheduleStatus==S_FALSE && !write(L"Weekly",0)) scheduleStatus=E_FAIL;
+        const bool ready=weekly && scheduleStatus==S_OK;
+        weeklyTaskReady=ready;
+        CheckDlgButton(h,2002,ready?BST_CHECKED:BST_UNCHECKED);
+        if(FAILED(scheduleStatus)) MessageBoxW(h,tr(
+            L"Unable to restore automatic update checks. Please enable them again or check Task Scheduler permissions.",
+            L"Automatickou kontrolu aktualizací se nepodařilo obnovit. Zapněte ji prosím znovu nebo zkontrolujte oprávnění Plánovače úloh."),L"ARose",MB_OK|MB_ICONERROR);
+        return TRUE;
     }
     if(message==WM_TIMER) { scheduledCheck(); return TRUE; }
     if(message==WM_COMMAND) {
@@ -100,10 +111,13 @@ INT_PTR CALLBACK dialog(HWND h,UINT message,WPARAM wp,LPARAM) {
         case 2002: {
             bool enable=IsDlgButtonChecked(h,2002)==BST_CHECKED;
             if(enable && !installed()){CheckDlgButton(h,2002,BST_UNCHECKED);requireInstall(h);return TRUE;}
-            if(FAILED(updates::schedule(enable)) || !write(L"Weekly",enable?1:0)) {
-                CheckDlgButton(h,2002,read(L"Weekly")?BST_CHECKED:BST_UNCHECKED);
+            const auto scheduled=updates::schedule(enable);
+            if(FAILED(scheduled) || !write(L"Weekly",enable?1:0)) {
+                if(SUCCEEDED(scheduled)) updates::schedule(!enable);
+                CheckDlgButton(h,2002,!enable?BST_CHECKED:BST_UNCHECKED);
                 MessageBoxW(h,tr(L"Unable to change automatic update checks.",L"Automatickou kontrolu aktualizací se nepodařilo změnit."),L"ARose",MB_OK|MB_ICONERROR);
-            } return TRUE;
+            } else { weeklyTaskReady=enable; }
+            return TRUE;
         }
         case 2003:launchSaver((L"/c:"+std::to_wstring(reinterpret_cast<UINT_PTR>(h))).c_str());return TRUE;
         case 2004:launchSaver(L"/w");return TRUE;

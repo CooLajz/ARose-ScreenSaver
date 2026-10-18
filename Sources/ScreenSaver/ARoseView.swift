@@ -253,10 +253,29 @@ final class ARoseView: ScreenSaverView {
         lastTime = 0; accumulator = 0
     }
     func applyConfiguration() {
-        if adoptFigureReset() { return }
+        if adoptFigureReset() { refreshPresentation(); return }
         let state = defaults.bool(forKey: "resumeFigure") ? engine.savedFigure() : nil
         reset()
         if let state { engine.restoreFigure(state) }
+        refreshPresentation()
+    }
+    // Manual commands must update Metal even when the animation clock is paused.
+    // Discard old interpolation endpoints and invalidate every in-flight slot's cache.
+    private func refreshPresentation() {
+        previousHistory = engine.modernHistory
+        interpolationEnabled = false
+        accumulator = 0
+        presentationRevision &+= 1
+        modernColors.removeAll(keepingCapacity: true)
+        displayAnimationFrame()
+    }
+    func restartAnimation() {
+        reset()
+        refreshPresentation()
+    }
+    func advanceFrames(_ count: Int) {
+        for _ in 0..<max(0, count) { engine.step() }
+        refreshPresentation()
     }
     func reset() {
         idlePreviewImage = nil

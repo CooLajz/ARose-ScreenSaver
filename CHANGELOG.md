@@ -2,6 +2,14 @@
 
 ## Unreleased — public distribution preparation
 
+- Refresh paused macOS previews after manual advance, restart and saved settings.
+- Preserve the Windows preview figure and pause state when cancelling settings;
+  keep standard system keyboard shortcuts such as Alt+F4 working.
+- Restore a missing Windows weekly update task when its saved opt-in survives
+  reinstall, and report registration failures instead of showing a working opt-in.
+- Verify app/extension and Windows installer versions and builds before signing
+  update feeds; reject stale companion binaries when packaging Windows releases.
+
 - Render an initial still image for stopped extension views requested by System
   Settings, preventing a black thumbnail after Options or app replacement.
   Keep the actual simulation and saved figure unchanged while generating it.
