@@ -2,6 +2,9 @@
 
 ## Unreleased — public distribution preparation
 
+- Prevent the stopped-thumbnail poster from appearing during macOS full-screen
+  startup. Wait for real geometry before the first Metal submission and preserve
+  animation timing across repeated host start requests.
 - Refresh paused macOS previews after manual advance, restart and saved settings.
 - Preserve the Windows preview figure and pause state when cancelling settings;
   keep standard system keyboard shortcuts such as Alt+F4 working.

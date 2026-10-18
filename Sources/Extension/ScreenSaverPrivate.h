@@ -7,6 +7,8 @@
 @end
 
 @interface ScreenSaverViewController : NSViewController
+- (void)startAnimation;
+- (void)stopAnimation;
 @end
 
 // The runtime superclass is NSServiceViewController (a private AppKit type).

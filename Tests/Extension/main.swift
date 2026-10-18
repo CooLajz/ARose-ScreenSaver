@@ -58,18 +58,30 @@ for appearance in [0, 1] {
     let view = ARoseView(frame: NSRect(x: 0, y: 0, width: 640, height: 360),
                         isPreview: false, settings: defaults)!
     view.showsIdlePreview = true
+    precondition(litPixels(in: view) == 0, "A cold full-screen view must stay black before the system starts it")
+    view.requestIdlePreview(true)
     precondition(litPixels(in: view) > 40, "Stopped extension thumbnail must not be black")
     precondition(litPixels(in: view) > 40, "Cached thumbnail must remain visible")
     precondition(view.engine.frame == 0 && !view.isAnimating)
     precondition(defaults.array(forKey: "figureState.v1") as? [Int] == bookmark)
     view.startAnimation()
     precondition(view.engine.frame == bookmark[1], "Live animation must resume the original bookmark")
+    precondition(litPixels(in: view) == 0, "The thumbnail must not leak into the live startup")
+    view.animateOneFrame()
+    let firstLiveFrame = view.engine.frame
+    let livePixels = litPixels(in: view)
+    precondition(livePixels > 0, "The first real animation tick must render the restored geometry")
+    view.startAnimation()
+    precondition(view.engine.frame == firstLiveFrame && litPixels(in: view) == livePixels,
+                 "A repeated start must preserve the live presentation")
     view.stopAnimation()
     defaults.set(false, forKey: "resumeFigure")
     let fresh = ARoseView(frame: view.frame, isPreview: false, settings: defaults)!
     fresh.showsIdlePreview = true
+    precondition(litPixels(in: fresh) == 0, "Fresh live startup must not show a warmed-up thumbnail")
+    fresh.requestIdlePreview(true)
     precondition(litPixels(in: fresh) > 40, "A fresh installation also needs a visible thumbnail")
     precondition(fresh.engine.frame == 0 && !fresh.isAnimating)
 }
-print("OK: stopped extension thumbnails render in both styles without changing animation or saved figures.")
+print("OK: explicit stopped thumbnails, cold live startup and repeated starts preserve both styles and saved figures.")
 

@@ -69,6 +69,7 @@ final class ARoseView: ScreenSaverView {
     private var accumulator: TimeInterval = 0
     private var displayClock: AnyObject?
     private var animationActive = false
+    private var awaitingFirstAnimationFrame = false
     private var screenObserver: NSObjectProtocol?
     private var previousHistory = [[RoseEngine.ModernPoint]]()
     private var interpolationEnabled = false
@@ -156,6 +157,7 @@ final class ARoseView: ScreenSaverView {
     // Extension hosts can request a stopped view for the Settings thumbnail.
     // Keep its poster independent of the real simulation and saved figure.
     var showsIdlePreview = false
+    private var idlePreviewRequested = false
     private var idlePreviewImage: CGImage?
     private var idlePreviewSize = NSSize.zero
 
@@ -184,9 +186,15 @@ final class ARoseView: ScreenSaverView {
         ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset", "scaleRetro"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
+        defaults.synchronize()
+        requestIdlePreview(false)
+        // Repeated host requests must not reset a running presentation clock.
+        if animationActive {
+            if configuration() != loadedConfiguration { applyConfiguration() }
+            return
+        }
         idlePreviewImage = nil
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
-        defaults.synchronize()
         if configuration() != loadedConfiguration { reset() }
         updateRetroRaster()
         if !isPreview && !figureSession {
@@ -204,6 +212,7 @@ final class ARoseView: ScreenSaverView {
         cpuTextUpdatedAt = 0
         super.startAnimation()
         animationActive = true
+        awaitingFirstAnimationFrame = engine.modern && engine.modernHistory.isEmpty
         updateDisplayClock()
     }
     @discardableResult func adoptFigureReset() -> Bool {
@@ -245,12 +254,20 @@ final class ARoseView: ScreenSaverView {
     override func stopAnimation() {
         configurationLog.notice("Figure stop preview=\(self.isPreview) session=\(self.figureSession) writer=\(Self.figureWriter === self) frame=\(self.engine.frame)")
         animationActive = false
+        awaitingFirstAnimationFrame = false
         updateDisplayClock()
         saveFigure()
         figureSession = false
         if Self.figureWriter === self { Self.figureWriter = nil }
         super.stopAnimation()
         lastTime = 0; accumulator = 0
+        if idlePreviewRequested { needsDisplay = true }
+    }
+    func requestIdlePreview(_ requested: Bool) {
+        guard idlePreviewRequested != requested else { return }
+        idlePreviewRequested = requested
+        if !requested { idlePreviewImage = nil }
+        needsDisplay = true
     }
     func applyConfiguration() {
         if adoptFigureReset() { refreshPresentation(); return }
@@ -328,6 +345,7 @@ final class ARoseView: ScreenSaverView {
         if lastTime == 0 {
             previousHistory = engine.modernHistory
             engine.step()
+            awaitingFirstAnimationFrame = false
             interpolationEnabled = false
             presentationRevision &+= 1
             displayAnimationFrame()
@@ -371,6 +389,10 @@ final class ARoseView: ScreenSaverView {
     }
     // Submit directly from the animation clock, not a coalesced AppKit draw pass.
     private func displayAnimationFrame() {
+        // Restoring a bookmark restores geometry but starts with empty trails.
+        // Publishing that empty Metal frame exposes a black gap during the
+        // system fade. Wait for the first real simulation tick instead.
+        if awaitingFirstAnimationFrame && engine.modernHistory.isEmpty { return }
         if window != nil && engine.modern && !forceCPU {
             if !triedMetal {
                 triedMetal = true
@@ -418,7 +440,7 @@ final class ARoseView: ScreenSaverView {
         metalRenderer?.surface.isHidden = true
         NSColor.black.setFill(); bounds.fill()
         guard let context = NSGraphicsContext.current?.cgContext else { return }
-        if showsIdlePreview && !animationActive && engine.frame == 0 {
+        if showsIdlePreview && idlePreviewRequested && !animationActive && engine.frame == 0 {
             if idlePreviewImage == nil || idlePreviewSize != bounds.size {
                 idlePreviewImage = makeIdlePreviewImage()
                 idlePreviewSize = bounds.size

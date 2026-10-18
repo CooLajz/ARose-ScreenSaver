@@ -19,6 +19,20 @@ final class ARoseExtensionViewController: ScreenSaverViewController {
         saver.showsIdlePreview = true
         view = saver
     }
+
+    override func startAnimation() {
+        (view as? ARoseView)?.requestIdlePreview(false)
+        super.startAnimation()
+    }
+
+    override func stopAnimation() {
+        super.stopAnimation()
+        // A newly attached thumbnail can be stopped before its first resize,
+        // so the framework need not call ScreenSaverView.stopAnimation yet.
+        // An explicit stop request, rather than a not-yet-started view, is the
+        // signal that it is safe to draw a representative still image.
+        (view as? ARoseView)?.requestIdlePreview(true)
+    }
 }
 
 @objc(ARoseConfigurationViewController)

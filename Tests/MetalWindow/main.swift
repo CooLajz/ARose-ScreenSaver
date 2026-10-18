@@ -19,6 +19,21 @@ final class WindowTest: NSObject, NSApplicationDelegate {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 720),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "ARose — Metal rendering test"
+        let startup = ARoseView(frame: window.contentView!.bounds, isPreview: false, settings: settings)!
+        startup.showsIdlePreview = true
+        window.contentView = startup
+        window.makeKeyAndOrderFront(nil)
+        startup.startAnimation()
+        precondition(startup.engine.frame == 0 && (startup.metalFrameStatistics?.submitted ?? 0) == 0,
+                     "Startup published a blank Metal frame before the first simulation tick")
+        startup.advanceAnimation(at: 100, interpolate: true)
+        precondition(startup.engine.frame == 1 && !startup.engine.modernHistory.isEmpty)
+        startup.startAnimation()
+        startup.advanceAnimation(at: 100.005, interpolate: true)
+        precondition(startup.engine.frame == 1,
+                     "Repeated start reset the clock and advanced the simulation early")
+        startup.stopAnimation()
+        print("OK: startup waits for real geometry; repeated start preserves the presentation clock.")
         view = ARoseView(frame: window.contentView!.bounds, isPreview: false, settings: settings)!
         view.autoresizingMask = [.width, .height]; window.contentView = view
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)

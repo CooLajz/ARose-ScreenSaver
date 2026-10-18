@@ -29,13 +29,18 @@ used by this implementation:
 - `RoseOptions` supplies shared content independently of an `NSWindow`.
   The classic saver and preview app create a window only when they need one.
 - The small Settings thumbnail can request a new view followed by
-  `stopAnimation`, without starting that view. Extension views therefore show
-  a bounded, cached still image while their real engine is at frame zero and
-  inactive. A detached instance of the shared renderer builds it from the
+  `stopAnimation`, without starting that view. Only that explicit controller
+  stop request enables a bounded, cached still image while the real engine is
+  at frame zero and inactive. A newly created full-screen view stays black until
+  animation starts, so it cannot flash the thumbnail during the system fade.
+  A detached instance of the shared renderer builds the still image from the
   current preferences and optional saved figure, without writing preferences
   or advancing the real simulation. The poster is invalidated by a size or
   configuration change and released when animation starts. Classic/app views
   keep their existing startup behavior.
+- Modern animation waits for the first simulation tick before submitting a
+  Metal frame with initially empty trails. Repeated start requests preserve
+  the running presentation clock instead of resetting it.
 - First app launch queries `pluginkit` before registering. Finder may have
   already registered the extension; repeating `pluginkit -a` while its Options
   sheet is open invalidates the host connection and leaves a blank sheet.
@@ -77,6 +82,12 @@ The previously black Settings thumbnail was also checked visually after Cancel,
 whole-picker close/reopen and app replacement. Automated checks cover both
 appearances, repeated still rendering, fresh preferences and preserved figure
 bookmarks followed by a normal animation start.
+After restricting the poster to explicit stop requests, the installed extension's
+thumbnail and Options were checked again after Cancel and a whole-picker
+close/reopen cycle. Regression checks cover cold full-screen drawing, both
+stopped-thumbnail appearances, the first Metal submission and repeated starts.
+The user also confirmed that actual activation from the desktop is now smooth,
+without the previous double flash during the fade.
 
 ## Packaging
 
