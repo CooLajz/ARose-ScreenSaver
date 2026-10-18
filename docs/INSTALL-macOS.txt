@@ -9,17 +9,14 @@ The extension is inside the app; no separate .saver installation is needed.
 The app does not need to stay open while the system screen saver runs.
 The embedded extension targets macOS 14+. The app itself supports macOS 13+.
 
-CLASSIC: On macOS 13, or for the independent classic version, extract the
-standalone .saver.zip and open ARose.saver in Finder. No app is required.
-The app preview, extension and classic saver each have separate settings and
-saved figures. Existing classic installations are not modified by the app.
+The app and system saver have independent settings and saved figures.
+The classic .saver remains in source for development, not as a public download.
 
 UPDATES: Choose Check for Updates in the installed app. After confirmation,
 Sparkle updates the whole app including its extension. Weekly checking is
 optional and off by default; macOS may request approval for background activity.
 The short hourly task only contacts GitHub when a week has elapsed and the
 session is active and unlocked. It does not wake the Mac. There is no telemetry.
-Update the standalone classic saver manually with a new .saver download.
 
 UNINSTALL: Disable weekly checks first, select another screen saver, and move
 ARose.app to the Trash. If separately installed, remove ARose.saver from
@@ -39,17 +36,14 @@ systému. Rozšíření spořiče je součástí aplikace;
 samostatný .saver se neinstaluje. Aplikace nemusí při běhu spořiče zůstat otevřená.
 Vložené rozšíření má cíl macOS 14+, samotná aplikace macOS 13+.
 
-KLASICKÝ SPOŘIČ: Pro macOS 13 nebo nezávislou klasickou variantu rozbalte
-samostatný .saver.zip a otevřete ARose.saver ve Finderu. Aplikace není nutná.
-Náhled v aplikaci, rozšíření i klasický spořič mají oddělená nastavení a uložené
-obrazce. Aplikace stávající klasický spořič nenahrazuje ani neodstraňuje.
+Aplikace a systémový spořič mají oddělená nastavení i uložené obrazce.
+Klasický .saver zůstává ve zdrojácích pro vývoj, nikoli jako veřejný balíček.
 
 AKTUALIZACE: V nainstalované aplikaci zvolte Zkontrolovat aktualizace. Po
 potvrzení Sparkle aktualizuje celou aplikaci včetně rozšíření. Volitelná týdenní
 kontrola je zpočátku vypnutá; macOS může požádat o povolení činnosti na pozadí.
 Krátká hodinová úloha komunikuje s GitHubem až po uplynutí týdne a jen při
 aktivním odemčeném sezení. Mac neprobouzí a neodesílá telemetrii.
-Samostatný klasický spořič aktualizujte ručně novým souborem .saver.
 
 ODINSTALACE: Nejprve vypněte týdenní kontrolu, vyberte jiný spořič a přesuňte
 ARose.app do Koše. Samostatně nainstalovaný ARose.saver případně odstraňte ze

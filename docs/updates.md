@@ -23,7 +23,7 @@ installation the Sparkle delegate records pending recovery, so a background
 relaunch can wait for an active, unlocked session rather than exiting early.
 App configuration sheets also defer recovery. No persistent repair agent is installed.
 Sparkle updates the whole app, including that extension, in one operation.
-The classic `.saver` is distributed separately and is never installed, replaced
+The classic `.saver` remains in the source project only and is never installed, replaced
 or removed by the app. Existing classic preferences remain separate from the
 extension's sandbox preferences. Neither format migrates the other's settings.
 Inno Setup
@@ -38,7 +38,7 @@ app/system ARose.scr in currently loaded user profiles, including the original
 user when elevation uses another administrator. Other screen savers and wallpaper
 settings remain unchanged. Offline profiles are never loaded or edited; those
 users should select another saver before uninstalling the shared installation.
-Standalone `.saver.zip` and `.scr` assets have no updater dependency.
+The standalone Windows `.scr` has no updater dependency. The classic Mac target is not a public download.
 
 Manual checking is always available in the installed companion. Weekly checking
 is explicit opt-in, default off. SMAppService (macOS) / Task Scheduler (Windows)
@@ -96,7 +96,6 @@ Expected release assets (replace 1.0.3 with the intended release version):
 
 - `ARose-ScreenSaver-v1.0.3-macOS-universal.dmg` — initial installation
 - `ARose-ScreenSaver-v1.0.3-macOS-update.zip` — Sparkle payload (app + embedded extension)
-- `ARose-ScreenSaver-v1.0.3-macOS-standalone.saver.zip` — standalone bundle
 - `ARose-ScreenSaver-v1.0.3-Windows-x64-Setup.exe` — initial/update installer
 - `ARose-ScreenSaver-v1.0.3-Windows-x64.scr` — standalone saver
 - `appcast-macos.xml`, `appcast-windows.xml`, SHA-256 checksums

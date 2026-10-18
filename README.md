@@ -2,151 +2,77 @@
 
 **English** | [Česky](README.cs.md)
 
-A native recreation of the Amiga BlitzBlank ARose screen saver, with an optional modern rendering mode. Built with Swift/AppKit on macOS and C++/Win32/Direct2D on Windows; no emulator, network access, or account required.
+**A little piece of the Amiga on today's screens.** Colorful dots, evolving shapes and motion that makes it easy to lose track of time. ARose brings a beloved Amiga screen saver to macOS and Windows, preserving its character while adding a new glow for modern displays.
 
-<p align="center"><img src="Resources/ARose-icon.png" width="192" alt="ARose ScreenSaver icon"></p>
+![Modern ARose with 80% glow in the macOS app](docs/images/modern-macos.jpg)
 
-## Features
+*An actual capture from the macOS app. The best part is watching it move.*
 
-- **Original Amiga:** indexed colors, crisp bitmap points and the reconstructed animation sequence.
-- **Modern:** smooth points at the display’s resolution, a continuous rainbow palette and adjustable glow.
-- New installations default to **Modern, 80% glow and a long trail**. Updates preserve saved settings.
-- English and Czech UI, selected from macOS language preferences; English fallback.
-- A drag-installed `ARose.app` with an embedded screen saver extension, plus a standalone `.saver` for older systems. All Mac variants share the renderer and settings UI.
+## The story behind the revival
 
-## Availability
+Years ago, my Amiga 1200 ran BlitzBlank with a module called ARose. A handful of colorful dots rotated, mirrored and formed beautiful patterns. It was one of those small experiences that stay with you for decades.
 
-This repository is being prepared for its first public release. No public download is announced yet.
+Much later, I spent a long time looking for something that would bring the same feeling to my Mac. I could not find it, so this remake began. The aim was to preserve what made ARose special: its shapes, transitions, rotations and rhythm.
 
-| Platform | Status | Intended download |
-| --- | --- | --- |
-| macOS | Implemented; public distribution preparation in progress | Universal drag-to-Applications DMG; separate standalone `.saver.zip` |
-| Windows | Initial x64 port; runtime acceptance pending | Native `.scr` in a ZIP with installation instructions |
+We managed to contact the original authors, **Wolfgang Breyha and Michael Matzl**. They welcomed the revival and gave permission to publish it. They also supplied the original source code to help us check and refine the behavior. That made it possible to compare the original mathematics and correct subtle differences in the rotations.
 
-The app and standalone `.saver` target macOS 13 or later; the embedded `.appex` targets macOS 14 or later and uses private ScreenSaver APIs. Both Apple Silicon and Intel architectures are built; manual validation has been performed on a Mac M2. Intel hardware and the full supported OS range have not been tested.
+The result brings that experience back in two forms: the original character of crisp colored dots, or smooth points with a continuous rainbow and adjustable glow. For me, ARose is now more than a screen saver. It is a relaxing coffee break and a small journey back to the Amiga days.
 
-Future GitHub Releases can carry downloads for both platforms under one version. Development artifacts are **ad-hoc signed, not notarized** and are not a finished public installer. See the [release guide](docs/releases.md) for the outstanding distribution requirements.
+## Amiga, Retro and Modern
 
-## Build and run
+The app offers two modes. Retro is called **Original Amiga** in settings; the original Amiga column below refers to the historical program that inspired this remake.
 
-Install Xcode and select its command-line tools, then run from the repository root:
+| | Original ARose on Amiga | Retro in this remake | Modern in this remake |
+| --- | --- | --- | --- |
+| Shapes and motion | Original calculations and sequences | Focus on preserving the original calculations and sequences | The same foundation of shapes and motion |
+| Points | Crisp dots at Amiga resolution | Crisp single-pixel dots at display resolution | Fine, antialiased points, including on Retina displays |
+| Colors | Palettes suited to Amiga hardware | Monochrome, ECS and AGA palettes | Continuous RGB rainbow |
+| Figure size | Fixed pixel size | Optional resolution-based enlargement, enabled by default | Automatically fits the drawing area |
+| Glow | No modern glow effect | No glow effect | Adjustable glow from 0–100% |
 
-```sh
-./script/build_and_run.sh          # Build and launch the preview
-./script/build_and_run.sh --build  # Build only
-./script/test.sh                   # Run after building
-./script/package_candidate.sh      # Package a local development candidate
-./script/package_macos_installer.sh # Create the drag-to-Applications DMG
-```
+**Modern mode keeps the underlying pattern sequence.** It develops the appearance for current monitors and smooth playback. Retro preserves the character of the original drawing; it is not a full Amiga emulator or a promise of identical output in every frame.
 
-Build logs are in `.build/build.log`. Clean installation archives are in `dist/`. Use the ZIPs rather than re-zipping loose bundles: managed Documents folders can add Finder metadata that invalidates signatures.
+![Retro ARose in the macOS app](docs/images/retro-macos.jpg)
 
-## Windows build and installation
+*Retro preserves the character of the original dots and trails. Disable resolution-based enlargement to retain a fixed pixel size as on the Amiga.*
 
-The native Windows build can be built and tested with `./script/build_windows.ps1`.
-Modern mode uses batched Direct3D 11 GPU drawing, with Direct2D fallback; the CPU
-debug overlay identifies the renderer. See [Windows performance notes](docs/windows-performance.md)
-for repeatable comparisons and measured image differences.
+## Download and install
 
-See the [release guide](docs/releases.md) for Visual Studio/CMake build commands.
-The Windows port includes `/s` full-screen mode, `/c` settings, `/p` embedded
-system preview and `/w` an interactive window. The default style, glow and trail
-match macOS. The Direct2D glow renderer is visually similar, not pixel-identical
-to the Mac renderer. Settings follow Windows UI language preferences.
+**The first public release is being prepared.** Public installation packages have not been announced yet. Once released, they will be available in [GitHub Releases](https://github.com/CooLajz/ARose-ScreenSaver/releases); the steps below describe their planned installation.
 
-Extract the Windows ZIP into a permanent user folder, then right-click
-`ARose.scr` → **Show more options** → **Install** to open Windows screen saver
-settings. The current candidate is unsigned and has not yet passed manual
-Windows acceptance. See [Windows installation notes](Windows/INSTALL.txt).
+### macOS — macOS 14 or later
 
-## Local macOS installation
+1. Download and open the **macOS `.dmg`** file.
+2. Drag **ARose** onto **Applications**.
+3. Launch ARose from Applications. Choose **ARose → Screen Saver Settings…**, then select ARose in System Settings.
+4. Use **Options…** to configure the system screen saver.
 
-1. Open the DMG in `dist/releases/` and drag **ARose** onto **Applications**.
-2. Open `/Applications/ARose.app` once, then choose **Screen Saver Settings…** in its menu and select ARose in System Settings. After replacing an existing app, open the installed copy once. It automatically refreshes the screen saver host and reopens System Settings if it was running.
-3. The screen saver extension stays inside the app. The app does not copy a `.saver` into your Library and does not need to remain open.
-4. On macOS 13, or to use the classic format independently, extract `dist/ARose.saver.zip` and open `ARose.saver` in Finder. The classic and extension versions have separate preferences; installing both is optional.
+The app does not need to stay open while the screen saver runs. The planned Mac download is a single installation DMG; the classic standalone `.saver` remains in the source project only. The package includes Apple Silicon and Intel builds; see the [user guide](docs/guide.md#requirements-and-release-status) for the scope of testing so far.
 
-These locally signed builds may be blocked when transferred to another computer. A notarized public distribution is still pending; this project does not disable macOS security protections.
+### Windows — Windows 11, 64-bit
 
-Preview shortcuts: **⌘ ,** settings, **⌘ F** full screen, **⌘ P** pause, **⌘ R** restart, **⌘ N** advance ten simulation seconds, **⌘ Q** quit.
+1. Download and run the **Windows `Setup.exe` installer**.
+2. Approve the administrator prompt and complete installation.
+3. Select **ARose** in Windows Screen Saver Settings. The companion controls are available from the Start menu.
 
-## Known limitations
+There is no separate .NET or Visual C++ Redistributable installation. A [standalone `.scr` file](docs/guide.md#standalone-windows-screen-saver) will also be available for those who prefer it.
 
-- The companion app and system screen saver have independent settings and saved figures on both platforms. Configure the saver through the system's Options/Settings button; experimenting in the app does not change it.
-- The classic `.saver` can still suffer from the legacy host's Options dialog failure after closing and reopening the picker. The app's `.appex` uses a dedicated configuration controller and avoids that legacy presentation path. Repeated picker close/reopen and Save/Cancel were verified locally on macOS 27.0.1; this is not acceptance of every macOS version.
-- The extension API is private and may change in future macOS releases. macOS 14–26 and Intel runtime acceptance remain pending. See [extension implementation and validation](docs/macos-extension.md).
-- No frame-by-frame equivalence with physical or emulated Amiga hardware has been measured. Original saved-animation state is not implemented.
+## Make it your own
 
-Tests exercise 600,000 simulation frames, settings validation, localization, actual saver-bundle loading, resizing and glow behavior. They do not replace manual testing inside System Settings or long-running performance checks.
+The default combination is **Modern, 80% glow and a long trail**. Adjust the speed, trail length and glow, or switch to Retro. Enable **Resume from last figure** to continue approximately where the previous session ended.
 
-## Origins and license
+The companion app also lets you enjoy the animation in a window or full screen. **Its settings are independent of the system screen saver.** Experimenting in the app will not change your saver.
 
-Original ARose by **Wolfgang Breyha and Michael Matzl, 1994–1995**. Its documentation credits Rose from After Dark as inspiration. The recreation uses control sequences transcribed from `BB.ARose020881`, internal version 1.2 (05 April 1995), distributed in `ARoseBlitz1.1`. Original binaries are not included. [Reconstruction notes (Czech)](docs/reconstruction.md) document the process and limitations.
+The app offers manual update checks and optional weekly checks, initially disabled. The animation works offline and needs no account; an internet connection is used to check for and download updates.
 
-New contributions are offered under [MIT](LICENSE), **only to the extent of rights held by their contributors**. This does not relicense the original control data or grant rights in derived material. See [third-party notices](THIRD_PARTY_NOTICES.md). Clarifying those rights remains a prerequisite for public distribution of the complete project.
+[User guide: settings, controls, updates and uninstalling →](docs/guide.md)
 
-## CPU debug overlay
+## Thanks and license
 
-Enable **Debug: show process CPU usage** in settings on either platform.
-The bottom-right overlay samples once per second and is off by default.
-Two values appear side by side: **1 core** uses 100% for one logical core and
-can exceed 100%; **All cores** uses 100% for all logical cores combined.
-For example, 300% and 75% represent the same process CPU time on four cores.
-Performance and efficiency cores count equally: this measures CPU time, not
-weighted computational throughput.
-This measures process CPU time, not system load or GPU activity. On macOS it
-includes the whole saver host process, potentially serving several views.
-A dash is shown before the first measurement. Update both the Mac saver and
-preview app, then reopen System Settings to load the new preference schema.
+The original Amiga ARose was created by **Wolfgang Breyha and Michael Matzl in 1994–1995**. Thank you for the beautiful original, your support for the revival and your help in preserving its behavior. The original documentation credits Rose from After Dark as an inspiration. [Original ARose on Aminet](https://aminet.net/package/util/blank/ARoseBlitz1.1).
 
-Modern mode renders both glow and sharp points through Metal on supported Macs, including when glow is off. A small precomputed coverage texture preserves Core Graphics antialiasing of fine points. Unavailable Metal falls back to CPU rendering. Image differences and benchmark limits are documented in [performance notes](docs/performance.md).
+This remake is developed with their permission and uses the [MIT license](LICENSE). The original source archives supplied by the authors and the original executables are not redistributed here. See [third-party notices](THIRD_PARTY_NOTICES.md) for permission scope and dependency licenses.
 
-Windows GPU measurements and remaining native runtime checks are recorded in the [Windows continuation guide](docs/windows-handoff.md) and [performance notes](docs/windows-performance.md).
+## For developers
 
-## Resume from last figure
-
-When continuation is off, each new full-screen saver session starts from the
-beginning, including when macOS reuses the same view. Repeated starts of an
-active animation do not reset the figure. Views flagged as previews by macOS
-also keep their progress across temporary stops.
-
-Enable **Resume from last figure** to continue the pattern, rotation and color
-phase on the next run, including after restarting the computer. This option is
-off by default and works in both styles. State is saved on normal exit. macOS also checkpoints the first frame and every
-second because its legacy host may omit the exit callback; Windows checkpoints
-every 30 seconds. A forced termination can lose the latest interval.
-Trails rebuild over the first 0.4 seconds rather than being stored as an image.
-Previews reported as previews by the OS never update the saved position. Some
-macOS versions run the System Settings thumbnail as a full saver; in that case
-it shares the system saver bookmark. The standalone
-macOS preview and Windows `/w` window keep their own separate position. Disabling
-the option ignores the bookmark without deleting it. Invalid or unsupported
-saved states are ignored. No files are sent over the network.
-
-To start over, click **Forget saved figure**, then **Save**. This clears both
-the saver and standalone preview bookmarks without changing the resume option.
-**Cancel** preserves the original position.
-
-On macOS 14 and later, Modern animation follows the display refresh rate,
-including 120 Hz, and interpolates positions and colors between the unchanged
-50 Hz simulation steps. Original Amiga mode and older macOS retain PAL pacing.
-The system may lower the actual refresh rate under power or display constraints.
-
-On macOS and Windows, Original Amiga mode renders at the drawable's physical
-pixel resolution, including Retina and high-DPI displays. Like Modern mode,
-the default-enabled “Scale retro figures to display resolution” option scales
-figure coordinates uniformly by the shorter pixel dimension divided by 640,
-while retro dots remain single pixels. Disable it to keep a fixed pixel size,
-as on the Amiga; resolution-based enlargement was introduced by WinRose. Original integer quantization, palettes
-and trail erasure are retained. The initial simulation target radius is 150,
-independent of the display; resizing preserves the figure and clears its trail.
-Windows keeps a separate raster for each monitor without stretching the bitmap.
-
-## Installation and updates
-
-The release tooling now prepares a per-user macOS DMG installer and a Windows
-installer, plus independent `.saver.zip` / `.scr` downloads. Companion apps offer
-manual checking and optional weekly checking (off by default). After confirmation,
-updates download, verify and install through Sparkle / WinSparkle. Standalone
-savers need no updater or additional runtime. Public downloads are not live yet.
-See [installation and update details](docs/updates.md).
+[Building and project structure](docs/development.md) · [Reconstruction notes (Czech)](docs/reconstruction.md) · [Preparing a release](docs/releases.md)

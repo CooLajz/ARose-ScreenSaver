@@ -13,8 +13,7 @@ advertise a platform as tested based solely on successful cross-compilation.
   11 x64. Native MSVC builds, six tests and local GPU/CPU measurements have passed.
   Full Windows acceptance remains pending; see [Windows continuation](windows-handoff.md)
   and [performance measurements](windows-performance.md).
-- New-code MIT license selected. Original data and derivative rights remain
-  excluded and unresolved; see [third-party notices](../THIRD_PARTY_NOTICES.md).
+- The authors granted permission to publish the remake under MIT. Original private source archives remain excluded; see [third-party notices](../THIRD_PARTY_NOTICES.md).
 - macOS local packages use ad-hoc signing. Windows candidates are unsigned.
 - CI builds development candidates only. It neither creates nor publishes a
   GitHub Release and has no write permission. The workflow must be verified on
@@ -53,8 +52,7 @@ include `development` to distinguish them from future public releases.
 
 ## Before the first public publication
 
-1. Resolve and document permission for the transcribed original control data
-   and reconstructed portions. MIT for new contributions does not settle this.
+1. Preserve the documented original-author permission and credits. Keep the privately supplied Amiga source archives out of sources and packages.
 2. Inspect the source tree for personal paths, private files and credentials.
    Build output, local Codex state and signing materials are ignored.
 3. Complete Windows acceptance tests below, and macOS checks on Apple Silicon
@@ -73,7 +71,7 @@ bundle in its actual system host. Submit the intended distribution archive to
 Apple with `notarytool`, inspect the result, staple tickets where supported,
 and validate on a clean Mac after downloading the final artifact. Sign the embedded extension before the outer app, preserving its sandbox entitlement.
 Test drag-installing the DMG, registering the extension, repeated Options
-presentation, and the independent `.saver` installation. If a `.pkg` is added,
+presentation, without installing a separate classic `.saver`. If a `.pkg` is added,
 it requires its own suitable installer signature and testing.
 
 No public signing automation is enabled yet: it needs the proper certificate,
@@ -111,7 +109,8 @@ Info.plists and Windows resource, manifest, and CMake files. Packaging reads the
 Create a **draft** GitHub Release at a tested commit. Attach final signed and
 validated packages, checksums and bilingual installation notes. Suggested names:
 
-- `ARose-ScreenSaver-v1.0.4-macOS-universal.zip`
+- `ARose-ScreenSaver-v1.0.4-macOS-universal.dmg`
+- `ARose-ScreenSaver-v1.0.4-macOS-update.zip` and `appcast-macos.xml`
 - `ARose-ScreenSaver-v1.0.4-Windows-x64.zip`
 
 Review the exact assets and notes before publishing the draft. GitHub-generated
@@ -125,6 +124,10 @@ References: [GitHub releases](https://docs.github.com/en/repositories/releasing-
 ## Installer and updater additions
 
 See [the current installation/update workflow](updates.md) for DMG/EXE packaging,
-standalone assets, Ed25519 signing, appcast generation and required native upgrade
+standalone Windows assets, Ed25519 signing, appcast generation and required native upgrade
 acceptance. These supersede the ZIP-only asset suggestions above. Public release
 publication remains a separate explicit operation.
+
+## Public Mac download policy
+
+Publish the installation DMG, app update ZIP, appcast and checksum sidecars. Do not attach a standalone `.saver` archive to public releases. Keep the classic target in the source project for development. Some packaging/CI paths still produce its archive; update the asset selection before the first publication. Windows distribution is unchanged. See [developer setup](development.md) for build instructions and [the user guide](guide.md) for installation.

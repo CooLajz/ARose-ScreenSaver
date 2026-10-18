@@ -1,7 +1,7 @@
 # macOS app and screen saver extension
 
-`ARose.app` embeds `ARoseExtension.appex` in `Contents/PlugIns`. The standalone
-`ARose.saver` remains an independent distribution. The app and classic saver
+`ARose.app` embeds `ARoseExtension.appex` in `Contents/PlugIns`. The classic
+`ARose.saver` remains buildable in the source project but is not a planned public download. The app and classic saver
 target macOS 13; the extension targets macOS 14. Those are build minimums,
 not a claim that all supported OS versions have passed runtime acceptance.
 
@@ -55,8 +55,8 @@ used by this implementation:
   for an active, unlocked console session and closed app configuration sheets.
 
 No system binary is patched and no private entitlement is added. The extension
-uses App Sandbox. Private APIs can change, so the classic distribution remains
-available and each new macOS version needs actual host testing.
+uses App Sandbox. Private APIs can change, so the classic target remains
+available in source and each new macOS version needs actual host testing.
 
 ## Local acceptance
 

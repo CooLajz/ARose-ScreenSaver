@@ -6,13 +6,13 @@ Original authors: Wolfgang Breyha and Michael Matzl, 1994–1995.
 
 Source archive: [ARoseBlitz1.1 on Aminet](https://aminet.net/package/util/blank/ARoseBlitz1.1), containing `BB.ARose020881` (internal version 1.2, 05 April 1995). Hashes and the reconstruction process are recorded in [docs/reconstruction.md](docs/reconstruction.md).
 
-The archive’s `ARose.readme` labels the original software **GIFTWARE**. The documentation inspected does not establish explicit permission to relicense reconstructed control data or derived material under MIT. The related Garshneblanker documentation credits Rose from After Dark. This is provenance information, not a new license grant.
+The historical archive labels the original software **GIFTWARE**. During private correspondence for this revival, Wolfgang Breyha permitted publication of the remake under a license of our choice, explicitly including MIT. After consulting Michael Matzl, he confirmed that the project could be published and supplied the original BlitzBlank sources to improve its accuracy.
 
-`Sources/Core/RoseTables.swift` contains transcribed control sequences; `Windows/RoseTables.h` is generated from that same data. `Sources/Core/RoseEngine.swift` and its C++ port `Windows/RoseEngine.h` reconstruct the original behavior; the reconstruction notes describe that relationship. Neither the MIT notice nor the absence of original binaries resolves third-party rights in those portions.
+The permission to use those supplied sources came with a separate restriction: the original source archives must not be shared further without the authors' approval. They remain outside this repository and are not part of release packages. The correspondence is summarized here; private emails, contact details and attachments are not published.
 
-Before publishing the complete source or binaries, clarify the applicable redistribution and derivative-work permissions with the relevant rights holders, or establish and document another appropriate basis. Record the scope of any permission here. Do not describe the complete project as unconditionally MIT-licensed while this is unresolved.
+This remake is distributed under the root [MIT license](LICENSE), relying on that permission for the reconstructed behavior and transcribed control sequences. This does not relicense or redistribute the historical source archives or original executables. Credit to Wolfgang Breyha and Michael Matzl is retained. Permission to publish the remake does not imply that the original authors maintain or certify it.
 
-Original executables and archives are not included in this repository or development packages. New contributions are offered under the root MIT license only to the extent of rights held by their contributors. No affiliation with or endorsement by the original authors is claimed.
+The control sequences are in `Sources/Core/RoseTables.swift`; `Windows/RoseTables.h` is generated from the same data. The Swift and C++ engines preserve the original mathematical foundation. [Reconstruction notes](docs/reconstruction.md) record the initial binary analysis; subsequent comparison with the privately supplied sources allowed rotation behavior to be refined. The original documentation credits Rose from After Dark as inspiration.
 
 ## Companion updater libraries
 
