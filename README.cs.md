@@ -51,7 +51,7 @@ Skript vytváří univerzální balíčky, odstraní nepřípustná metadata Fin
 
 Výchozí nastavení pro nové uživatele je **Moderní**, **záře 80 %** a **Dlouhá stopa** (16 kroků), s normální rychlostí. Již uložené volby se při aktualizaci nemění.
 
-**Originální Amiga** zachovává celočíselné souřadnice, původní palety a mazání stop. Na macOS kreslí do skutečného rozlišení displeje; Windows zatím používá pevný rastr 800 × 600.
+**Originální Amiga** zachovává celočíselné souřadnice, původní palety a mazání stop. Na macOS i Windows kreslí přímo do fyzického rozlišení displeje. Obrazce rovnoměrně zvětšuje stejným měřítkem jako Modern (kratší strana v pixelech dělená 640), body však zůstávají jednopixelové. Počáteční cílový poloměr simulace je 150 bez ohledu na displej. Změna rozlišení zachová figuru a vymaže stopu; každý monitor ve Windows má vlastní rastr.
 
 **Moderní** používá stejnou sekvenci obrazců a 96 bodů, ale souřadnice počítá s desetinnou přesností. Body vykresluje jako jemné vyhlazené kruhy přímo do aktuálního rozlišení displeje včetně Retiny. Jejich velikost je omezená, takže se při zvětšení okna nemění v roztažené čtverce. Obrazce se rovnoměrně přizpůsobují kratší straně plochy, bez deformace na širokoúhlých nebo svislých monitorech. Plynulá RGB duha není omezená indexovanou paletou; starší body stopy postupně zeslabují. Maximální skutečně zobrazený počet odstínů závisí na displeji a jeho barevné hloubce.
 

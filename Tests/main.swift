@@ -78,7 +78,7 @@ check(abs(openingPoint.x - cos(expectedAngle)) < 1e-12 && abs(openingPoint.y - s
 
 for (w, h) in [(320,256), (640,512), (800,600), (1920,1080), (3840,2160)] {
     let native = RoseEngine(width: w, height: h)
-    check(native.savedFigure()[3] == min(w / 2, h / 2) / 2, "Native initial radius")
+    check(native.savedFigure()[3] == 150, "Native initial radius")
     native.step()
     check(native.tracks.allSatisfy { $0.history[0].x == w/2 && $0.history[0].y == h/2 }, "Native center")
     for _ in 0..<250 { native.step() }
@@ -89,3 +89,15 @@ for (w, h) in [(320,256), (640,512), (800,600), (1920,1080), (3840,2160)] {
     check(native.pixels.count == w*h && native.pixels.allSatisfy { $0 == 0 }, "Resize clears old trail")
 }
 print("OK: native retro sizes, initial radius, fixed table radii and resize continuation.")
+
+for (w, h) in [(2560,1280), (1280,2560)] {
+    let base = RoseEngine(width: 800, height: 640), enlarged = RoseEngine(width: w, height: h)
+    base.tail = 1; enlarged.tail = 1
+    for _ in 0..<100 { base.step(); enlarged.step() }
+    check(base.savedFigure() == enlarged.savedFigure(), "Scale must preserve simulation state")
+    var expected = [UInt8](repeating: 0, count: w*h)
+    for y in 0..<640 { for x in 0..<800 where base.pixels[y*800+x] != 0 {
+        expected[(h/2+(y-320)*2)*w+w/2+(x-400)*2] = base.pixels[y*800+x]
+    } }
+    check(expected == enlarged.pixels, "Uniform retro scale keeps single-pixel dots in landscape and portrait")
+}

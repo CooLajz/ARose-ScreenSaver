@@ -53,11 +53,12 @@ class Engine {
     Sequence a{tables::radiusA}, b{tables::radiusB}, f{tables::frequency};
     static int wrap(int n) { return (n % 1440 + 1440) % 1440; }
     void plot(Point p, uint8_t color) {
-        if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height)
-            pixels[static_cast<size_t>(p.y * width + p.x)] = color;
+        if (p.x >= 0 && p.x < rasterWidth && p.y >= 0 && p.y < rasterHeight)
+            pixels[static_cast<size_t>(p.y * rasterWidth + p.x)] = color;
     }
 public:
     static constexpr int width = 800, height = 600;
+    int rasterWidth = width, rasterHeight = height;
     Settings settings;
     uint64_t frame = 0;
     std::vector<uint8_t> pixels = std::vector<uint8_t>(width * height);
@@ -72,6 +73,14 @@ public:
             angle = static_cast<float>(double(angle) + increment);
         }
         for (int i = 0; i < 96; ++i) tracks[i].angle = tracks[i].base = i * 15, tracks[i].color = i;
+    }
+    void resizeRaster(int w, int h) {
+        w = std::max(1, w); h = std::max(1, h);
+        if (w == rasterWidth && h == rasterHeight) return;
+        rasterWidth = w; rasterHeight = h;
+        pixels.assign(static_cast<size_t>(w) * h, 0);
+        for (auto& track : tracks) track.history = {};
+        slot = 0;
     }
     void step() {
         const int length = std::clamp(settings.tail, 1, 20);
@@ -93,8 +102,11 @@ public:
             const int phi = wrap(frequency * t.base / 200);
             const int u = (radiusA * sine[t.angle] + radiusB * sine[phi]) / 4096;
             const int v = (radiusA * cosine[t.angle] + radiusB * cosine[phi]) / 4096;
-            Point p{400 + (v * cr - u * sr) / 4096, 300 - (v * sr + u * cr) / 4096};
-            t.history[slot] = p;
+            // Scale coordinates, not the bitmap, preserving square single-pixel dots.
+            const int extent = settings.appearance == 0 ? std::min(rasterWidth, rasterHeight) : 640;
+            Point p{rasterWidth / 2 + int(int64_t((v * cr - u * sr) / 4096) * extent / 640),
+                    rasterHeight / 2 - int(int64_t((v * sr + u * cr) / 4096) * extent / 640)};
+            t.history[slot] = p.x >= 0 && p.x < rasterWidth && p.y >= 0 && p.y < rasterHeight ? p : Point{};
             plot(p, static_cast<uint8_t>(settings.palette == 0 ? 1 : settings.palette == 1 ? t.color / 8 + 1 : t.color + 1));
             t.color = (t.color + 1) % 96;
         }

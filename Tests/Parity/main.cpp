@@ -11,6 +11,25 @@ uint64_t hashPixels(const std::vector<uint8_t>& pixels) {
 }
 int main(int argc,char**) {
     if(argc>1) {
+        for(auto dimensions : {std::pair<int,int>{2560,1280}, {1280,2560}}) {
+            Engine base, enlarged;
+            base.settings.appearance=enlarged.settings.appearance=0;
+            base.settings.tail=enlarged.settings.tail=1;
+            base.resizeRaster(800,640);
+            enlarged.resizeRaster(dimensions.first,dimensions.second);
+            for(int i=0;i<100;++i) { base.step(); enlarged.step(); }
+            if(base.savedFigure()!=enlarged.savedFigure()) return 14;
+            std::vector<uint8_t> expected(enlarged.pixels.size());
+            for(int y=0;y<640;++y) for(int x=0;x<800;++x) if(base.pixels[y*800+x]) {
+                int xx=dimensions.first/2+(x-400)*2, yy=dimensions.second/2+(y-320)*2;
+                expected[yy*dimensions.first+xx]=base.pixels[y*800+x];
+            }
+            if(expected!=enlarged.pixels) return 15;
+            auto state=enlarged.savedFigure(); enlarged.resizeRaster(320,256);
+            if(enlarged.savedFigure()!=state || enlarged.pixels.size()!=320*256 ||
+               std::any_of(enlarged.pixels.begin(),enlarged.pixels.end(),[](uint8_t c){return c!=0;})) return 16;
+        }
+        std::cout<<"PASS: native retro scaling preserves proportions, single pixels and figure state\n";
         for(int speed=1; speed<=5; ++speed) {
             Engine opening; opening.settings.speed=speed;
             opening.step();

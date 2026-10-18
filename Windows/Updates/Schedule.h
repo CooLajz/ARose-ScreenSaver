@@ -79,4 +79,39 @@ inline HRESULT schedule(bool enable) {
     ComPtr<IRegisteredTask> registered;
     return folder->RegisterTaskDefinition(Bstr(name.c_str()),task.Get(),TASK_CREATE_OR_UPDATE,empty,empty,TASK_LOGON_INTERACTIVE_TOKEN,empty,&registered);
 }
+// Administrative uninstall removes only tasks that launch this installed binary.
+inline HRESULT removeInstalledTasks() {
+    using Microsoft::WRL::ComPtr;
+    ComPtr<ITaskService> service;
+    HRESULT hr=CoCreateInstance(CLSID_TaskScheduler,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&service));
+    if(FAILED(hr)) return hr;
+    VARIANT empty; VariantInit(&empty);
+    if(FAILED(hr=service->Connect(empty,empty,empty,empty))) return hr;
+    ComPtr<ITaskFolder> folder;
+    if(FAILED(hr=service->GetFolder(Bstr(L"\\"),&folder))) return hr;
+    ComPtr<IRegisteredTaskCollection> tasks;
+    if(FAILED(hr=folder->GetTasks(TASK_ENUM_HIDDEN,&tasks))) return hr;
+    LONG count=0; if(FAILED(hr=tasks->get_Count(&count))) return hr;
+    const auto path=executable();
+    HRESULT result=S_OK;
+    for(LONG i=count;i>=1;--i) {
+        VARIANT index; VariantInit(&index); index.vt=VT_I4; index.lVal=i;
+        ComPtr<IRegisteredTask> task; Bstr name(L"");
+        if(FAILED(tasks->get_Item(index,&task))) continue;
+        SysFreeString(name.value); name.value=nullptr;
+        if(FAILED(task->get_Name(&name.value)) || !name.value ||
+           std::wstring(name.value).rfind(L"ARose Update Check-",0)!=0) continue;
+        ComPtr<ITaskDefinition> definition; ComPtr<IActionCollection> actions;
+        ComPtr<IAction> action; ComPtr<IExecAction> exec;
+        if(FAILED(task->get_Definition(&definition)) || FAILED(definition->get_Actions(&actions)) ||
+           FAILED(actions->get_Item(1,&action)) || FAILED(action.As(&exec))) continue;
+        Bstr taskPath(L""); SysFreeString(taskPath.value); taskPath.value=nullptr;
+        if(FAILED(exec->get_Path(&taskPath.value)) || !taskPath.value ||
+           _wcsicmp(taskPath.value,path.c_str())!=0) continue;
+        hr=folder->DeleteTask(name,0);
+        if(FAILED(hr)) result=hr;
+    }
+    return result;
+}
+
 }

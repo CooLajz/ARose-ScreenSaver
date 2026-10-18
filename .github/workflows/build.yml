@@ -36,7 +36,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   windows:
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +66,8 @@ jobs:
         run: choco install innosetup --no-progress -y
       - name: Package development candidate
         run: ./script/package_windows.ps1
+      - name: Test installed companion and system registration
+        run: ./script/test_windows_installer.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: Windows-x64-development

@@ -1,9 +1,9 @@
 ARose ScreenSaver — Windows 11 x64
 
 English
-INSTALLER: Run ARose-ScreenSaver-v…-Windows-x64-Setup.exe. It installs for your
-account without administrator rights, adds Start menu shortcuts and provides
-an uninstaller. ARose opens the companion controls; ARose Preview opens an
+INSTALLER: Run ARose-ScreenSaver-v…-Windows-x64-Setup.exe. It asks for administrator approval, installs into Program Files, adds the
+saver to the Windows system directory and creates Start menu shortcuts and an
+uninstaller. Updates also require administrator approval. ARose opens the companion controls; ARose Preview opens an
 interactive animation window. Select ARose in Windows Screen Saver Settings.
 Updates preserve settings, saved figures and your existing saver selection.
 
@@ -20,6 +20,9 @@ the elapsed week locally and contacts GitHub only when due and the desktop is
 active/unlocked. It does not wake the computer. Failed checks retry next week;
 manual checks remain available. No telemetry or account is required.
 
+Before replacing an early per-user development install, uninstall it first;
+preferences and saved figures are retained. Then install the new all-users build.
+
 Settings are in HKCU\Software\CooLajz\ARose. The installer uninstaller removes
 the weekly task and installed files, but retains preferences and saved figures.
 For a standalone copy, select another saver or None, then delete the file.
@@ -30,8 +33,9 @@ In the preview: F1 settings, Space pause, R restart. Languages: Czech/English.
 Development builds are unsigned; corporate policies may disallow custom savers.
 
 Česky
-INSTALÁTOR: Spusťte ARose-ScreenSaver-v…-Windows-x64-Setup.exe. Instaluje se pro
-váš účet bez správce, přidá zástupce do nabídky Start a umožní odinstalaci.
+INSTALÁTOR: Spusťte ARose-ScreenSaver-v…-Windows-x64-Setup.exe. Vyžádá si potvrzení správce, nainstaluje aplikaci do Program Files a spořič
+do systémové složky Windows, přidá zástupce do nabídky Start a umožní odinstalaci.
+Aktualizace také vyžadují potvrzení správce.
 ARose otevře ovládací aplikaci, ARose Preview interaktivní animaci v okně.
 Vyberte ARose v nastavení spořiče Windows. Aktualizace ponechají nastavení,
 uložené obrazce i dosavadní výběr spořiče.
@@ -48,6 +52,10 @@ Uživatelská úloha Plánovače se krátce spustí každou hodinu a místně ov
 týdne. GitHub kontaktuje pouze při splnění intervalu a aktivní odemčené ploše.
 Počítač neprobouzí. Po chybě zkusí další týden, ruční kontrola funguje kdykoli.
 Neodesílá se telemetrie, není potřeba účet.
+
+Před nahrazením starší vývojové instalace pro jeden účet ji nejprve odinstalujte;
+preference a uložené obrazce zůstanou zachovány. Poté nainstalujte novou verzi
+pro celý počítač.
 
 Preference jsou v HKCU\Software\CooLajz\ARose. Odinstalace odstraní týdenní úlohu
 a nainstalované soubory, preference a obrazce ponechá. U samostatné kopie nejprve

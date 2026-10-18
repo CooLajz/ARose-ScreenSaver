@@ -133,7 +133,8 @@ struct CPUMeter {
         wall=now; cpu=total;
     }
 } cpuMeter;
-void resetEngine() { lastFigureSave = 0; animationReady = false; cpuMeter = {}; engine = std::make_unique<Engine>(); engine->settings = settings; lastStep = AnimationClock::now(); frameTiming = {}; previousHistory.clear(); }
+uint64_t engineGeneration = 0;
+void resetEngine() { ++engineGeneration; lastFigureSave = 0; animationReady = false; cpuMeter = {}; engine = std::make_unique<Engine>(); engine->settings = settings; lastStep = AnimationClock::now(); frameTiming = {}; previousHistory.clear(); }
 int selection(HWND d, int id) { return static_cast<int>(SendDlgItemMessageW(d, id, CB_GETCURSEL, 0, 0)); }
 void updateDialog(HWND d) {
     bool modern = selection(d, IDC_STYLE) == 1;
@@ -184,6 +185,12 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
             wchar_t module[32768]{};
             GetModuleFileNameW(nullptr,module,32768);
             auto companion=std::filesystem::path(module).parent_path()/L"ARose Control.exe";
+            if(!std::filesystem::exists(companion)) {
+                wchar_t installedPath[32768]{}; DWORD size=sizeof installedPath;
+                if(RegGetValueW(HKEY_LOCAL_MACHINE,L"Software\\CooLajz\\ARose",L"InstallPath",
+                                RRF_RT_REG_SZ|RRF_SUBKEY_WOW6464KEY,nullptr,installedPath,&size)==ERROR_SUCCESS)
+                    companion=std::filesystem::path(installedPath)/L"ARose Control.exe";
+            }
             if(std::filesystem::exists(companion)) ShellExecuteW(d,L"open",companion.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
             else MessageBoxW(d,tr(L"Install the companion app to manage updates. The standalone screen saver works without it.",L"Pro správu aktualizací nainstalujte doprovodnou aplikaci. Samostatný spořič funguje i bez ní."),L"ARose",MB_OK|MB_ICONINFORMATION);
             return TRUE;
@@ -222,6 +229,8 @@ struct Renderer {
     bool gpuFailed=false;
     bool hardware=false;
     PreparedFrame prepared;
+    std::unique_ptr<Engine> retroEngine;
+    uint64_t retroGeneration = 0;
     int cachedPalette = -1;
     std::array<uint32_t, 256> paletteColors{};
     std::vector<uint32_t> rgba = std::vector<uint32_t>(800*600);
@@ -240,7 +249,7 @@ struct Renderer {
             hr=factory->CreateHwndRenderTarget(properties,D2D1::HwndRenderTargetProperties(w,D2D1::SizeU(std::max(1L,r.right),std::max(1L,r.bottom)),D2D1_PRESENT_OPTIONS_IMMEDIATELY),&target);
         }
         if(SUCCEEDED(hr)) hr=target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),&brush);
-        if(SUCCEEDED(hr)) hr=target->CreateBitmap(D2D1::SizeU(800,600),nullptr,0,D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_IGNORE)),&bitmap);
+
         if(FAILED(hr)) { discard(); return false; }
         return true;
     }
@@ -321,13 +330,25 @@ struct Renderer {
         const auto size=target->GetSize();
         target->BeginDraw(); target->Clear(D2D1::ColorF(D2D1::ColorF::Black));
         if(settings.appearance==0) {
+            const auto pixels = target->GetPixelSize();
+            if(!retroEngine || retroGeneration != engineGeneration) {
+                retroEngine=std::make_unique<Engine>(*engine);
+                retroGeneration=engineGeneration;
+            }
+            retroEngine->resizeRaster(int(pixels.width),int(pixels.height));
+            if(!bitmap || bitmap->GetPixelSize().width != pixels.width || bitmap->GetPixelSize().height != pixels.height) {
+                release(bitmap);
+                if(FAILED(target->CreateBitmap(pixels,nullptr,0,D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_IGNORE)),&bitmap))) {
+                    target->EndDraw(); return;
+                }
+            }
+            rgba.resize(retroEngine->pixels.size());
             if(cachedPalette!=settings.palette) {
                 paletteColors=Engine::palette(settings.palette); cachedPalette=settings.palette;
             }
-            for(size_t i=0;i<rgba.size();++i) rgba[i]=paletteColors[engine->pixels[i]];
-            bitmap->CopyFromMemory(nullptr,rgba.data(),800*4);
-            float scale=std::min(size.width/800,size.height/600),width=800*scale,height=600*scale;
-            target->DrawBitmap(bitmap,D2D1::RectF((size.width-width)/2,(size.height-height)/2,(size.width+width)/2,(size.height+height)/2),1,D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
+            for(size_t i=0;i<rgba.size();++i) rgba[i]=paletteColors[retroEngine->pixels[i]];
+            bitmap->CopyFromMemory(nullptr,rgba.data(),retroEngine->rasterWidth*4);
+            target->DrawBitmap(bitmap,D2D1::RectF(0,0,size.width,size.height),1,D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
         } else {
             // Keep the original physical-pixel size and Direct2D rasterization.
             float dpi=static_cast<float>(GetDpiForWindow(w))/96;
@@ -520,6 +541,10 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
             for(int i=0;i<steps;++i) {
                 previousHistory=engine->modernHistory;
                 engine->step();
+                if(settings.appearance==0) for(HWND w:windows) {
+                    auto renderer=reinterpret_cast<Renderer*>(GetWindowLongPtrW(w,GWLP_USERDATA));
+                    if(renderer && renderer->retroEngine) renderer->retroEngine->step();
+                }
             }
         }
         if(engine->frame >= lastFigureSave && engine->frame-lastFigureSave>=1500) saveFigure();

@@ -54,7 +54,7 @@ for (w, h) in [(320,256), (640,512), (1920,1080)] {
     preferences.setVolatileDomain(["appearance": 0], forName: UserDefaults.argumentDomain)
     let view = ARoseView(frame: NSRect(x: 0, y: 0, width: w, height: h), isPreview: true, settings: preferences)!
     precondition(view.engine.rasterWidth == w && view.engine.rasterHeight == h)
-    precondition(view.engine.savedFigure()[3] == min(w/2,h/2)/2)
+    precondition(view.engine.savedFigure()[3] == 150)
     view.engine.step()
     precondition(view.frameImage()!.width == w && view.frameImage()!.height == h)
     let state = view.engine.savedFigure()

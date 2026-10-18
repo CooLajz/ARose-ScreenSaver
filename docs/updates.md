@@ -14,7 +14,12 @@ The Mac app lives at `~/Applications/ARose Preview.app`, with its managed saver
 at `~/Library/Screen Savers/ARose.saver`. Sparkle updates the app including the
 embedded saver; on relaunch its newer bundle build is copied to the managed
 location. This does not touch ScreenSaverDefaults or saved figures. Inno Setup
-updates a stable per-user installation and does not overwrite ARose preferences.
+updates a stable machine-wide installation in Program Files and copies ARose.scr
+to the 64-bit Windows system directory for screen saver discovery. Installation
+and updates require administrator approval. HKLM stores the installation path;
+preferences and weekly checking remain per-user. Uninstall removes update tasks
+whose executable path matches this installation, without changing user preferences.
+Uninstall an early per-user development build before installing this layout.
 Standalone `.saver.zip` and `.scr` assets have no updater dependency.
 
 Manual checking is always available in the installed companion. Weekly checking

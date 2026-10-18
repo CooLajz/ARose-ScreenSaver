@@ -29,7 +29,7 @@ bool write(const wchar_t* name,uint64_t value) {
 }
 bool installed() {
     wchar_t path[32768]{}; DWORD size=sizeof path;
-    if(RegGetValueW(HKEY_CURRENT_USER,L"Software\\CooLajz\\ARose",L"InstallPath",RRF_RT_REG_SZ,nullptr,path,&size)!=ERROR_SUCCESS)return false;
+    if(RegGetValueW(HKEY_LOCAL_MACHINE,L"Software\\CooLajz\\ARose",L"InstallPath",RRF_RT_REG_SZ|RRF_SUBKEY_WOW6464KEY,nullptr,path,&size)!=ERROR_SUCCESS)return false;
     auto current=std::filesystem::path(updates::executable()).parent_path().wstring();
     return _wcsicmp(current.c_str(),path)==0;
 }
@@ -58,12 +58,32 @@ bool scheduledCheck() {
 }
 void launchSaver(const wchar_t* argument) {
     auto path=std::filesystem::path(updates::executable()).parent_path()/L"ARose.scr";
-    ShellExecuteW(window,L"open",path.c_str(),argument,nullptr,SW_SHOWNORMAL);
+    // Launch the executable directly: the .scr shell association may force /s.
+    std::wstring command=L"\""+path.wstring()+L"\" "+argument;
+    STARTUPINFOW startup{}; startup.cb=sizeof startup;
+    PROCESS_INFORMATION process{};
+    if(CreateProcessW(path.c_str(),command.data(),nullptr,nullptr,FALSE,0,nullptr,
+                      path.parent_path().c_str(),&startup,&process)) {
+        CloseHandle(process.hThread); CloseHandle(process.hProcess);
+    } else {
+        MessageBoxW(window,tr(L"Unable to open ARose. Please reinstall the application.",
+                             L"ARose se nepodařilo otevřít. Nainstalujte prosím aplikaci znovu."),
+                    L"ARose",MB_OK|MB_ICONERROR);
+    }
 }
 INT_PTR CALLBACK dialog(HWND h,UINT message,WPARAM wp,LPARAM) {
     if(message==WM_INITDIALOG) {
         window=h;
         SetWindowTextW(h,L"ARose ScreenSaver");
+        POINT pointer{}; GetCursorPos(&pointer);
+        MONITORINFO monitor{}; monitor.cbSize=sizeof monitor;
+        RECT bounds{};
+        if(GetWindowRect(h,&bounds) && GetMonitorInfoW(MonitorFromPoint(pointer,MONITOR_DEFAULTTONEAREST),&monitor)) {
+            const auto& area=monitor.rcWork;
+            SetWindowPos(h,nullptr,area.left+(area.right-area.left-(bounds.right-bounds.left))/2,
+                         area.top+(area.bottom-area.top-(bounds.bottom-bounds.top))/2,
+                         0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
+        }
         SetDlgItemTextW(h,2001,tr(L"Check for Updates…",L"Zkontrolovat aktualizace…"));
         SetDlgItemTextW(h,2002,tr(L"Check automatically every week",L"Automaticky kontrolovat jednou týdně"));
         SetDlgItemTextW(h,2003,tr(L"Screen Saver Settings…",L"Nastavení spořiče…"));
@@ -85,7 +105,7 @@ INT_PTR CALLBACK dialog(HWND h,UINT message,WPARAM wp,LPARAM) {
                 MessageBoxW(h,tr(L"Unable to change automatic update checks.",L"Automatickou kontrolu aktualizací se nepodařilo změnit."),L"ARose",MB_OK|MB_ICONERROR);
             } return TRUE;
         }
-        case 2003:launchSaver(L"/c");return TRUE;
+        case 2003:launchSaver((L"/c:"+std::to_wstring(reinterpret_cast<UINT_PTR>(h))).c_str());return TRUE;
         case 2004:launchSaver(L"/w");return TRUE;
         case IDCANCEL:DestroyWindow(h);PostQuitMessage(0);return TRUE;
         }
@@ -99,6 +119,12 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR arguments,int) {
     czech=PRIMARYLANGID(GetUserDefaultUILanguage())==LANG_CZECH;
     HRESULT apartment=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     if(FAILED(apartment))return 1;
+    if(std::wstring(arguments)==L"/preview") {
+        launchSaver(L"/w"); CoUninitialize(); return 0;
+    }
+    if(std::wstring(arguments)==L"/remove-installed-tasks") {
+        auto hr=updates::removeInstalledTasks(); CoUninitialize(); return FAILED(hr)?1:0;
+    }
     background=std::wstring(arguments)==L"/weekly";
     if(std::wstring(arguments)==L"/disable-weekly") {
         write(L"Weekly",0); auto hr=updates::schedule(false);CoUninitialize();return FAILED(hr)?1:0;

@@ -126,11 +126,13 @@ including 120 Hz, and interpolates positions and colors between the unchanged
 50 Hz simulation steps. Original Amiga mode and older macOS retain PAL pacing.
 The system may lower the actual refresh rate under power or display constraints.
 
-On macOS, Original Amiga mode renders at the drawable's physical pixel resolution,
-including Retina. The center follows the screen and the initial target radius is
-one quarter of its shorter dimension. Later table radii remain fixed, so figures
-are relatively smaller on larger screens and points are not magnified. Resizing
-preserves the figure and clears its trail. Windows still uses the 800 × 600 raster.
+On macOS and Windows, Original Amiga mode renders at the drawable's physical
+pixel resolution, including Retina and high-DPI displays. Like Modern mode,
+figure coordinates scale uniformly by the shorter pixel dimension divided by 640,
+while retro dots remain single pixels. Original integer quantization, palettes
+and trail erasure are retained. The initial simulation target radius is 150,
+independent of the display; resizing preserves the figure and clears its trail.
+Windows keeps a separate raster for each monitor without stretching the bitmap.
 
 ## Installation and updates
 

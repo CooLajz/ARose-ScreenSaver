@@ -63,7 +63,6 @@ final class RoseEngine {
     // A screen-mode change clears the trail but preserves an ongoing figure.
     func resizeRaster(width: Int, height: Int) {
         let w = max(1, width), h = max(1, height)
-        if frame == 0 { targetA = min(w / 2, h / 2) / 2 }
         guard w != rasterWidth || h != rasterHeight else { return }
         rasterWidth = w; rasterHeight = h
         pixels = [UInt8](repeating: 0, count: w * h)
@@ -106,8 +105,10 @@ final class RoseEngine {
             let phi = wrap(frequency * tracks[i].base / 200)
             let u = (radiusA * sine[theta] + radiusB * sine[phi]) / 4096
             let v = (radiusA * cosine[theta] + radiusB * cosine[phi]) / 4096
-            let point = Point(x: rasterWidth / 2 + (v * cr - u * sr) / 4096,
-                              y: rasterHeight / 2 - (v * sr + u * cr) / 4096)
+            // Scale coordinates uniformly after original integer quantization; dots stay one pixel.
+            let extent = modern ? 640 : min(rasterWidth, rasterHeight)
+            let point = Point(x: rasterWidth / 2 + ((v * cr - u * sr) / 4096) * extent / 640,
+                              y: rasterHeight / 2 - ((v * sr + u * cr) / 4096) * extent / 640)
             // Original resets off-screen trail coordinates to the top-left pixel.
             tracks[i].history[slot] = point.x >= 0 && point.x < rasterWidth && point.y >= 0 && point.y < rasterHeight ? point : Point()
             let color = paletteMode == 0 ? 1 : (paletteMode == 1 ? tracks[i].color / 8 + 1 : tracks[i].color + 1)
