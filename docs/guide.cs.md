@@ -43,10 +43,6 @@ Dokud je soubor vybraný jako spořič, nepřesouvejte jej. Novou verzi pak inst
 - V aplikaci macOS otevřete tlačítko **Nastavení…**. Ve Windows otevřete náhled a stiskněte **F1**.
 - Změny potvrďte tlačítkem **Uložit**. **Zrušit** je zahodí.
 
-Následující snímky pocházejí ze skutečného nastavení aplikace na macOS. Stejné volby jsou dostupné také pro systémový spořič; jeho nastavení se ukládá samostatně.
-
-![Moderní nastavení na macOS, záře 80 % a dlouhá stopa](images/settings-modern-macos.cs.jpg)
-
 ## Co jednotlivé volby dělají
 
 | Volba | Význam |
@@ -60,8 +56,6 @@ Následující snímky pocházejí ze skutečného nastavení aplikace na macOS.
 | Pokračovat od posledního obrazce | Při dalším spuštění naváže přibližně na předchozí pozici. Ve výchozím stavu je vypnuté. |
 | Zapomenout uložený obrazec | Po potvrzení tlačítkem Uložit smaže pozici v právě nastavované aplikaci či spořiči. Volbu pokračování nevypíná. |
 | Debug: zobrazovat vytížení procesu | Volitelný technický údaj o CPU; pro běžné používání jej můžete ponechat vypnutý. |
-
-![Retro nastavení na macOS s paletou AGA a zvětšováním podle rozlišení](images/settings-retro-macos.cs.jpg)
 
 Pokračování obnovuje obrazec, natočení a barevnou fázi, nikoli uložený obrázek. Stopa se po spuštění znovu dokreslí. Vypnutí pokračování pozici nemaže; k resetu použijte **Zapomenout uložený obrazec → Uložit**. Změna vzhledu může animaci restartovat.
 

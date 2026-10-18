@@ -4,9 +4,9 @@
 
 **Kousek Amigy na dnešní obrazovce.** Barevné body, proměnlivé obrazce a pohyb, u kterého se snadno zapomene na čas. ARose přináší oblíbený spořič z Amigy na macOS a Windows — s úctou k originálu a s novou září pro dnešní displeje.
 
-![Moderní ARose se září 80 % v aplikaci pro macOS](docs/images/modern-macos.jpg)
+**ARose v pohybu**
 
-*Skutečný snímek z macOS aplikace. V pohybu to nejlepší teprve přijde.*
+https://github.com/user-attachments/assets/b8c67746-8197-4f5f-9714-1877c5d0dc92
 
 ## Příběh návratu
 
@@ -31,10 +31,6 @@ V aplikaci najdete dva režimy. Retro se v nastavení jmenuje **Originální Ami
 | Záře | Bez moderního glow efektu | Bez glow efektu | Nastavitelná záře 0–100 % |
 
 **Moderní režim nemění základní sekvenci na jiný efekt.** Rozvíjí její vzhled pro současné monitory a plynulé zobrazení. Retro zachovává původní charakter kresby; nejde však o úplnou emulaci Amigy ani o záruku shody každého jednotlivého snímku.
-
-![Retro ARose v aplikaci pro macOS](docs/images/retro-macos.jpg)
-
-*Retro: původní charakter barevných bodů a stop. Zvětšování podle rozlišení lze vypnout pro pevnou pixelovou velikost jako na Amize.*
 
 ## Stažení a instalace
 

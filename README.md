@@ -4,9 +4,9 @@
 
 **A little piece of the Amiga on today's screens.** Colorful dots, evolving shapes and motion that makes it easy to lose track of time. ARose brings a beloved Amiga screen saver to macOS and Windows, preserving its character while adding a new glow for modern displays.
 
-![Modern ARose with 80% glow in the macOS app](docs/images/modern-macos.jpg)
+**Watch ARose in motion**
 
-*An actual capture from the macOS app. The best part is watching it move.*
+https://github.com/user-attachments/assets/b8c67746-8197-4f5f-9714-1877c5d0dc92
 
 ## The story behind the revival
 
@@ -31,10 +31,6 @@ The app offers two modes. Retro is called **Original Amiga** in settings; the or
 | Glow | No modern glow effect | No glow effect | Adjustable glow from 0–100% |
 
 **Modern mode keeps the underlying pattern sequence.** It develops the appearance for current monitors and smooth playback. Retro preserves the character of the original drawing; it is not a full Amiga emulator or a promise of identical output in every frame.
-
-![Retro ARose in the macOS app](docs/images/retro-macos.jpg)
-
-*Retro preserves the character of the original dots and trails. Disable resolution-based enlargement to retain a fixed pixel size as on the Amiga.*
 
 ## Download and install
 

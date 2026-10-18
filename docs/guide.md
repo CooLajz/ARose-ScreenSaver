@@ -43,10 +43,6 @@ Do not move the file while it is selected as your saver. Install a new version b
 - In the macOS app, use **Settings…**. In the Windows animation preview, press **F1**.
 - Confirm changes with **Save**. **Cancel** discards them.
 
-The following screenshots show the actual macOS app settings in Czech. The same controls are available for the system screen saver, whose settings are saved separately. The interface also supports English and follows the operating system's preferred languages.
-
-![Modern settings on macOS, with 80% glow and a long trail; Czech interface](images/settings-modern-macos.cs.jpg)
-
 ## What the options do
 
 | Option | Effect |
@@ -60,8 +56,6 @@ The following screenshots show the actual macOS app settings in Czech. The same 
 | Resume from last figure | Continues approximately from the previous position on the next run. Off by default. |
 | Forget saved figure | Clears the position for the app or saver you are configuring when you click Save. Does not disable continuation. |
 | Debug: show process CPU usage | An optional technical CPU readout; leave it off for ordinary use. |
-
-![Retro settings on macOS, with AGA palette and resolution-based enlargement; Czech interface](images/settings-retro-macos.cs.jpg)
 
 Continuation restores the figure, rotation and color phase rather than a saved image. Trails rebuild after launch. Disabling continuation does not delete the position; reset it with **Forget saved figure → Save**. Changing appearance may restart the animation.
 
