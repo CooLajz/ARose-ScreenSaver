@@ -5,6 +5,17 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class SaverUI {
+ public delegate bool EnumWindow(IntPtr window, IntPtr data);
+ [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindow callback, IntPtr data);
+ [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
+ [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
+ public static IntPtr FindWindow(uint pid) {
+  IntPtr found=IntPtr.Zero;
+  EnumWindows((w,data) => { uint owner; GetWindowThreadProcessId(w,out owner);
+   if(owner==pid && IsWindowVisible(w)) { found=w; return false; } return true;
+  },IntPtr.Zero);
+  return found;
+ }
  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
  [StructLayout(LayoutKind.Sequential)] public struct Monitor { public int Size; public Rect Bounds, Work; public uint Flags; }
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr w, out Rect r);
@@ -18,14 +29,15 @@ function Wait-Window($process) {
     for ($i=0; $i -lt 100; $i++) {
         $process.Refresh()
         if ($process.HasExited) { throw "Process exited before opening its window: $($process.ExitCode)" }
-        if ($process.MainWindowHandle -ne 0) { return $process.MainWindowHandle }
+        $handle = [SaverUI]::FindWindow($process.Id)
+        if ($handle -ne 0) { return $handle }
         Start-Sleep -Milliseconds 100
     }
     throw 'Window did not appear.'
 }
 function Wait-Saver {
     for ($i=0; $i -lt 100; $i++) {
-        $saver = Get-Process ARose -ErrorAction SilentlyContinue | Select-Object -First 1
+        $saver = Get-Process | Where-Object { $_.Path -eq "$app/ARose.scr".Replace('/','\') } | Select-Object -First 1
         if ($saver) { return $saver }
         Start-Sleep -Milliseconds 100
     }
@@ -46,13 +58,15 @@ try {
     $monitor.Size = [Runtime.InteropServices.Marshal]::SizeOf($monitor)
     if (-not [SaverUI]::GetWindowRect($window,[ref]$bounds) -or -not [SaverUI]::GetMonitorInfo([SaverUI]::MonitorFromWindow($window,2),[ref]$monitor)) { throw 'Cannot inspect window placement.' }
     if ([Math]::Abs(($bounds.Left+$bounds.Right)-($monitor.Work.Left+$monitor.Work.Right)) -gt 4 -or [Math]::Abs(($bounds.Top+$bounds.Bottom)-($monitor.Work.Top+$monitor.Work.Bottom)) -gt 4) { throw 'Companion is not centered.' }
-    [void][SaverUI]::PostMessage([SaverUI]::GetDlgItem($window,2003),0xF5,0,0)
+    Write-Output 'Checking settings command.'
+    [void][SaverUI]::PostMessage($window,0x111,2003,0)
     $saver = Wait-Saver
     $settings = Wait-Window $saver
     if ([SaverUI]::GetDlgItem($settings,1001) -eq 0) { throw 'Settings button opened animation instead of configuration.' }
     [void][SaverUI]::PostMessage($settings,0x10,0,0)
     if (-not $saver.WaitForExit(10000)) { throw 'Settings did not close.' }
-    [void][SaverUI]::PostMessage([SaverUI]::GetDlgItem($window,2004),0xF5,0,0)
+    Write-Output 'Checking preview command.'
+    [void][SaverUI]::PostMessage($window,0x111,2004,0)
     $saver = Wait-Saver
     $preview = Wait-Window $saver
     if ([SaverUI]::GetDlgItem($preview,1001) -ne 0 -or $saver.MainWindowTitle -notmatch 'Preview|Náhled') { throw 'Preview did not open an animation window.' }
@@ -62,7 +76,7 @@ try {
     if (-not $control.WaitForExit(10000)) { throw 'Companion did not close.' }
     Write-Output 'PASS: machine installation, system saver copy, centered companion, settings and windowed preview.'
 } finally {
-    Get-Process ARose,'ARose Control' -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process | Where-Object { $_.Path -in @("$app/ARose.scr".Replace('/','\'), "$app/ARose Control.exe".Replace('/','\')) } | Stop-Process -Force
     $uninstall = Start-Process "$app/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
     if ($uninstall.ExitCode -ne 0) { throw "Uninstall failed: $($uninstall.ExitCode)" }
 }
