@@ -163,7 +163,15 @@ On the development Radeon, the maximum total RGB energy difference was
 0.333%, and the maximum whole-image RGB RMS error was 0.308/255. Native
 antialiasing has discrete jumps at tiny subpixel positions; a few individual
 channel differences reached 37/255. The explicit bounds are 40/255 per channel,
-RMS 0.35/255, and total RGB energy change of 1% without glow or 3% with glow.
+RMS 0.45/255, and total RGB energy change of 1% without glow or 3% with glow.
+
+On 18 October 2026, the `windows-2025` runner in
+[CI run 39130654333](https://github.com/CooLajz/ARose-ScreenSaver/actions/runs/39130654333)
+measured a maximum channel difference of 40/255, RGB energy change of 2.57898%,
+and RMS error of 0.423565/255 across 72 images. This result was explicitly
+accepted by the project owner. The RMS bound was raised from 0.35 to 0.45/255
+to cover that accepted baseline; the channel and energy bounds remain unchanged.
+
 These limits cover numerical coverage interpolation, not a different geometry,
 color sequence, draw order or additive blending. The independent stricter
 Direct2D-only checks above remain unchanged. The GPU image is not byte-identical.
