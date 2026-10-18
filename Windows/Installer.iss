@@ -57,7 +57,7 @@ Filename: "{app}\ARose Control.exe"; Parameters: "/remove-installed-tasks"; Flag
 english.SaverSettings=Select ARose in screen saver settings
 czech.SaverSettings=Vybrat ARose v nastavení spořiče obrazovky
 [Code]
-procedure ClearARoseSelection(const RootKey: HKEY; const DesktopKey: String);
+procedure ClearARoseSelection(const RootKey: Integer; const DesktopKey: String);
 var Selected: string;
 begin
   if RegQueryStringValue(RootKey, DesktopKey, 'SCRNSAVE.EXE', Selected) then
