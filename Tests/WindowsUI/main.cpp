@@ -67,7 +67,16 @@ int main() {
     keyboard[VK_MENU]=0x80; SetKeyboardState(keyboard);
     SendMessageW(w,WM_SYSKEYDOWN,VK_F4,1LL<<29);
     SetKeyboardState(original);
-    MSG quit{};
-    check(PeekMessageW(&quit,nullptr,WM_QUIT,WM_QUIT,PM_REMOVE)!=0,"Alt+F4 did not close the preview");
+    // DefWindowProc queues WM_SYSCOMMAND/SC_CLOSE for Alt+F4. Dispatch the
+    // pending messages as the application does; filtering only for WM_QUIT
+    // would leave the close command unprocessed and report a false failure.
+    MSG message{};
+    bool quitSeen=false;
+    while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
+        if(message.message==WM_QUIT) { quitSeen=true; break; }
+        TranslateMessage(&message); DispatchMessageW(&message);
+    }
+    check(quitSeen,"Alt+F4 did not close the preview");
+    check(message.wParam==0,"Preview closed with a nonzero exit code");
     std::cout << "PASS: F1 cancel/save preserve pause and figure policy; Alt+F4 reaches the system handler.\n";
 }
