@@ -101,3 +101,15 @@ for (w, h) in [(2560,1280), (1280,2560)] {
     } }
     check(expected == enlarged.pixels, "Uniform retro scale keeps single-pixel dots in landscape and portrait")
 }
+
+let fixedSmall = RoseEngine(width: 800, height: 600)
+let fixedLarge = RoseEngine(width: 1600, height: 1200)
+fixedSmall.scaleRetro = false; fixedLarge.scaleRetro = false
+fixedSmall.tail = 1; fixedLarge.tail = 1
+for _ in 0..<100 { fixedSmall.step(); fixedLarge.step() }
+var fixedExpected = [UInt8](repeating: 0, count: 1600*1200)
+for y in 0..<600 { for x in 0..<800 where fixedSmall.pixels[y*800+x] != 0 {
+    fixedExpected[(y+300)*1600+x+400] = fixedSmall.pixels[y*800+x]
+} }
+check(fixedExpected == fixedLarge.pixels, "Disabled retro scaling keeps identical pixel-sized geometry")
+check(fixedSmall.savedFigure() == fixedLarge.savedFigure(), "Scaling option must not change the figure sequence")

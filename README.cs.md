@@ -51,7 +51,7 @@ Skript vytváří univerzální balíčky, odstraní nepřípustná metadata Fin
 
 Výchozí nastavení pro nové uživatele je **Moderní**, **záře 80 %** a **Dlouhá stopa** (16 kroků), s normální rychlostí. Již uložené volby se při aktualizaci nemění.
 
-**Originální Amiga** zachovává celočíselné souřadnice, původní palety a mazání stop. Na macOS i Windows kreslí přímo do fyzického rozlišení displeje. Obrazce rovnoměrně zvětšuje stejným měřítkem jako Modern (kratší strana v pixelech dělená 640), body však zůstávají jednopixelové. Počáteční cílový poloměr simulace je 150 bez ohledu na displej. Změna rozlišení zachová figuru a vymaže stopu; každý monitor ve Windows má vlastní rastr.
+**Originální Amiga** zachovává celočíselné souřadnice, původní palety a mazání stop. Na macOS i Windows kreslí přímo do fyzického rozlišení displeje. Ve výchozím stavu zapnutá volba „Zvětšovat retro obrazce podle rozlišení“ zvětšuje obrazce stejným měřítkem jako Modern (kratší strana v pixelech dělená 640), body však zůstávají jednopixelové. Vypnutím zachováte pevnou pixelovou velikost jako na Amize; zvětšování podle rozlišení přinesl novější WinRose. Počáteční cílový poloměr simulace je 150 bez ohledu na displej. Změna rozlišení zachová figuru a vymaže stopu; každý monitor ve Windows má vlastní rastr.
 
 **Moderní** používá stejnou sekvenci obrazců a 96 bodů, ale souřadnice počítá s desetinnou přesností. Body vykresluje jako jemné vyhlazené kruhy přímo do aktuálního rozlišení displeje včetně Retiny. Jejich velikost je omezená, takže se při zvětšení okna nemění v roztažené čtverce. Obrazce se rovnoměrně přizpůsobují kratší straně plochy, bez deformace na širokoúhlých nebo svislých monitorech. Plynulá RGB duha není omezená indexovanou paletou; starší body stopy postupně zeslabují. Maximální skutečně zobrazený počet odstínů závisí na displeji a jeho barevné hloubce.
 
@@ -61,14 +61,7 @@ Při přepnutí podoby se animace spustí od začátku. Volba původní palety z
 
 ## Potíže s tlačítkem Volby
 
-**Od verze 1.0.2 lze systémový spořič nastavovat také z ARose Preview:**
-
-1. V Nastavení systému → Tapeta → Spořič obrazovky vyberte ARose a ponechte otevřený animovaný náhled. Tlačítko Volby není potřeba.
-2. Otevřete `ARose Preview.app` a zvolte Obrazec → Nastavení… (⌘ ,). Aplikace nejprve načte volby z běžícího systémového hostitele, pokud odpoví.
-3. Upravte nastavení a stiskněte Uložit. Potvrzení „Nastavení převzal i systémový spořič“ znamená, že hostitel potvrdil převzetí hodnot a synchronizaci vlastních předvoleb.
-4. Pokud hostitel neodpoví, aplikace oznámí, že změny jsou uložené pouze v náhledu. Spusťte systémový náhled a uložení zopakujte. Přenos se neodkládá do příštího spuštění spořiče.
-
-Přenos probíhá lokálními systémovými oznámeními, bez sítě a bez přímého přepisování souborů předvoleb jiného procesu. Přijímá pouze osm ověřených voleb ARose. Lokálně byl ověřen přenos změny záře, potvrzení od obou běžících hostitelů a zachování hodnoty v novém hostiteli po restartu. Toto řešení obchází problém se systémovým dialogem; neopravuje chybu macOS v tlačítku Volby. Stejné omezení popisuje také [autor Afterglow](https://morphing.cloud/afterglow/help/#known-issues).
+Aplikace a systémový spořič mají samostatná nastavení i uložené figury na macOS i Windows. Nastavení aplikace slouží k nezávislému zkoušení obrazců; systémový spořič se nastavuje tlačítkem Volby v macOS nebo Nastavení ve Windows. Změny se mezi nimi nepřenášejí.
 
 Při lokálním ověření na macOS 27.0.1 byl zachycen přerušovaný pád systémového procesu `legacyScreenSaver`: při požadavku `presentConfiguration` přistoupil k první položce prázdného pole `viewControllers`, ještě před předáním požadavku konfiguračnímu oknu modulu. Náhled proto může zmizet nebo se po obnovení hostitele znovu rozběhnout. Pokud Volby nereagují, zavřete výběr spořičů tlačítkem Hotovo, ukončete Nastavení systému a znovu je otevřete. Tento postup není zárukou odstranění systémové chyby.
 

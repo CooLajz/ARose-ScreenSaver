@@ -8,6 +8,7 @@ final class RoseEngine {
     struct ModernPoint {
         let x: Double, y: Double, hue: Double
     }
+    var scaleRetro = true
     var modern = false
     private(set) var modernHistory = [[ModernPoint]]()
     struct Track {
@@ -106,7 +107,7 @@ final class RoseEngine {
             let u = (radiusA * sine[theta] + radiusB * sine[phi]) / 4096
             let v = (radiusA * cosine[theta] + radiusB * cosine[phi]) / 4096
             // Scale coordinates uniformly after original integer quantization; dots stay one pixel.
-            let extent = modern ? 640 : min(rasterWidth, rasterHeight)
+            let extent = modern || !scaleRetro ? 640 : min(rasterWidth, rasterHeight)
             let point = Point(x: rasterWidth / 2 + ((v * cr - u * sr) / 4096) * extent / 640,
                               y: rasterHeight / 2 - ((v * sr + u * cr) / 4096) * extent / 640)
             // Original resets off-screen trail coordinates to the top-left pixel.

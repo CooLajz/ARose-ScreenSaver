@@ -35,10 +35,6 @@
 "Restart" = "Od začátku";
 "Advance Animation" = "Další část animace";
 "Full Screen" = "Celá obrazovka";
-"Settings received by the system screen saver" = "Nastavení převzal i systémový spořič";
-"Settings saved only in the preview" = "Nastavení je uložené pouze v náhledu";
-"The running ARose host confirmed that it received and saved the settings." = "Běžící hostitel ARose potvrdil převzetí a uložení nastavení.";
-"The system screen saver did not confirm receipt. Open System Settings → Wallpaper → Screen Saver, select ARose, and leave the preview running. Then save the settings here again." = "Systémový spořič nepotvrdil převzetí. Otevřete Nastavení systému → Tapeta → Spořič obrazovky, vyberte ARose a nechte běžet náhled. Potom zde nastavení znovu uložte.";
 "OK" = "OK";
 "Debug: show process CPU usage" = "Debug: zobrazovat vytížení procesu";
 "Process · all CPU cores" = "Proces · všechna jádra CPU";
@@ -74,3 +70,24 @@
 "Installation and updates…" = "Instalace a aktualizace…";
 "Install the companion app to manage updates." = "Pro správu aktualizací nainstalujte doprovodnou aplikaci.";
 "The standalone screen saver works without the companion app." = "Samostatný spořič funguje i bez doprovodné aplikace.";
+
+"Scale retro figures to display resolution" = "Zvětšovat retro obrazce podle rozlišení";
+"Retro scaling explanation" = "Zvětší retro obrazce podle rozlišení displeje. Amiga zachovávala pevnou velikost; novější WinRose přidal zvětšování podle rozlišení. Vypnutím zachováte původní velikost.";
+
+"Unable to open the companion app." = "Doprovodnou aplikaci se nepodařilo otevřít.";
+
+"Install ARose screen saver…" = "Nainstalovat spořič ARose…";
+
+"Uninstall ARose screen saver…" = "Odinstalovat spořič ARose…";
+
+"Uninstall ARose screen saver?" = "Odinstalovat spořič ARose?";
+
+"The companion app and saved settings will remain. The screen saver will be moved to the Trash." = "Doprovodná aplikace a uložená nastavení zůstanou zachována. Spořič bude přesunut do koše.";
+
+"Uninstall" = "Odinstalovat";
+
+"ARose screen saver was uninstalled." = "Spořič ARose byl odinstalován.";
+
+"Quit and reopen System Settings to refresh the screen saver list." = "Pro obnovení seznamu spořičů ukončete Nastavení systému a znovu je otevřete.";
+
+"Unable to uninstall the screen saver." = "Spořič se nepodařilo odinstalovat.";

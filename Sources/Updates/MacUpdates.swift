@@ -13,11 +13,36 @@ final class MacUpdates: NSObject, SPUUpdaterDelegate, NSMenuItemValidation {
     static var applicationURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/ARose Preview.app")
     }
+    private var userSaverURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Screen Savers/ARose.saver")
+    }
+    private var installedSaverURL: URL? {
+        [userSaverURL, URL(fileURLWithPath: "/Library/Screen Savers/ARose.saver")]
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+    @objc func manageSaver() {
+        guard let saver = installedSaverURL else { installSaver(); return }
+        let confirmation = NSAlert()
+        confirmation.messageText = roseText("Uninstall ARose screen saver?")
+        confirmation.informativeText = roseText("The companion app and saved settings will remain. The screen saver will be moved to the Trash.")
+        confirmation.addButton(withTitle: roseText("Uninstall"))
+        confirmation.addButton(withTitle: roseText("Cancel"))
+        guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try FileManager.default.trashItem(at: saver, resultingItemURL: nil)
+            // An app update must not reinstall an explicitly removed saver.
+            defaults.set(false, forKey: "managedSaver")
+            alert("ARose screen saver was uninstalled.", "Quit and reopen System Settings to refresh the screen saver list.")
+        } catch { alert("Unable to uninstall the screen saver.", error.localizedDescription) }
+    }
     private func alert(_ message: String, _ detail: String = "") {
         let alert = NSAlert(); alert.messageText = roseText(message); alert.informativeText = roseText(detail)
         alert.addButton(withTitle: roseText("OK")); alert.runModal()
     }
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(manageSaver) {
+            menuItem.title = roseText(installedSaverURL == nil ? "Install ARose screen saver…" : "Uninstall ARose screen saver…")
+        }
         if menuItem.action == #selector(toggleWeekly) { menuItem.state = defaults.bool(forKey: "weeklyUpdates") ? .on : .off }
         return true
     }
@@ -90,17 +115,32 @@ final class MacUpdates: NSObject, SPUUpdaterDelegate, NSMenuItemValidation {
                 }
                 try replace(source: Bundle.main.bundleURL, destination: Self.applicationURL)
                 let configuration = NSWorkspace.OpenConfiguration()
+                // Launch Services may otherwise return this running DMG instance
+                // with the same bundle ID, without delivering the launch argument.
+                configuration.createsNewApplicationInstance = true
                 configuration.arguments = ["--install-saver"]
-                NSWorkspace.shared.openApplication(at: Self.applicationURL, configuration: configuration) { _, error in
+                NSWorkspace.shared.openApplication(at: Self.applicationURL, configuration: configuration) { application, error in
                     DispatchQueue.main.async {
                         if let error { self.alert("Installation failed.", error.localizedDescription) }
-                        else { NSApp.terminate(nil) }
+                        else if let application,
+                                application.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                            NSApp.terminate(nil)
+                        } else { self.alert("Installation failed.") }
                     }
                 }
                 return
             }
-            let destination = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Screen Savers/ARose.saver")
-            try replace(source: source, destination: destination)
+            installSaver()
+        } catch { alert("Installation failed.", error.localizedDescription) }
+    }
+    private func installSaver() {
+        let source = Bundle.main.resourceURL!.appendingPathComponent("ARose.saver")
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            alert("This copy does not include the installer.", "Download the installation package from GitHub Releases.")
+            return
+        }
+        do {
+            try replace(source: source, destination: userSaverURL)
             defaults.set(true, forKey: "managedSaver")
             alert("ARose was installed for your user account.", "Select ARose in System Settings → Screen Saver. If System Settings was already open, quit and reopen it to load the new version.")
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.ScreenSaver-Settings.extension")!)

@@ -63,7 +63,7 @@ private final class RoseDisplayTarget: NSObject {
 
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
-    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0]
+    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0, "scaleRetro": true]
     private(set) var engine = RoseEngine()
     private var lastTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
@@ -153,20 +153,18 @@ final class ARoseView: ScreenSaverView {
     private var figureResetGeneration = 0.0
     private var lastFigureActivity: TimeInterval = 0
     var paused = false
-    var configurationSaved: (() -> Void)?
 
     override convenience init?(frame: NSRect, isPreview: Bool) {
         self.init(frame: frame, isPreview: isPreview,
                   settings: ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose")!)
     }
-    // Inject isolated preferences into rendering tests; production uses the saver domain.
+    // The companion app and tests inject their own isolated preference domains.
     init?(frame: NSRect, isPreview: Bool, settings: UserDefaults) {
         defaults = settings
         super.init(frame: frame, isPreview: isPreview)
         animationTimeInterval = 1.0 / 50.0
         defaults.register(defaults: Self.initialSettings)
         reset()
-        RoseSettingsBridge.register(self)
     }
     required init?(coder: NSCoder) {
         defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose")!
@@ -174,12 +172,11 @@ final class ARoseView: ScreenSaverView {
         animationTimeInterval = 1.0 / 50.0
         defaults.register(defaults: Self.initialSettings)
         reset()
-        RoseSettingsBridge.register(self)
     }
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     private func configuration() -> [Double] {
-        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset"].map { defaults.double(forKey: $0) }
+        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset", "scaleRetro"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
@@ -269,6 +266,7 @@ final class ARoseView: ScreenSaverView {
         engine = RoseEngine()
         let storedGlow = defaults.double(forKey: "glow")
         glow = storedGlow.isFinite ? min(1, max(0, storedGlow)) : 0
+        engine.scaleRetro = defaults.bool(forKey: "scaleRetro")
         engine.modern = defaults.integer(forKey: "appearance") == 1
         updateRetroRaster()
         engine.speed = min(5, max(1, defaults.integer(forKey: "speed")))
@@ -530,75 +528,10 @@ final class ARoseView: ScreenSaverView {
         }
         options = RoseOptions(defaults: defaults) { [weak self] in
             self?.applyConfiguration()
-            self?.configurationSaved?()
         }
         options?.reload()
         configurationLog.notice("Created configuration: content=\(String(describing: self.options?.window.contentView?.frame), privacy: .public)")
         return options?.window
-    }
-}
-
-// Exchange only ARose preferences. Each sandboxed host commits through its own
-// ScreenSaverDefaults; no direct writes into another process's preference files.
-enum RoseSettingsBridge {
-    static let request = Notification.Name("cz.coolajz.ARose.settings.request")
-    static let response = Notification.Name("cz.coolajz.ARose.settings.response")
-    static let keys = ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset"]
-    static let views = NSHashTable<ARoseView>.weakObjects()
-    static var observer: NSObjectProtocol?
-
-    struct Message: Codable {
-        let id: String
-        let values: [String: Double]?
-    }
-    static func encode(_ message: Message) -> String? {
-        guard let data = try? JSONEncoder().encode(message) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-    static func decode(_ object: Any?) -> Message? {
-        guard let text = object as? String, text.utf8.count < 4096,
-              let data = text.data(using: .utf8),
-              let message = try? JSONDecoder().decode(Message.self, from: data),
-              UUID(uuidString: message.id) != nil else { return nil }
-        if let values = message.values {
-            guard Set(values.keys) == Set(keys), values.values.allSatisfy({ $0.isFinite }),
-                  [0.0, 1.0].contains(values["appearance"]!),
-                  (1...5).contains(values["speed"]!), values["speed"]! == values["speed"]!.rounded(),
-                  [1.0, 4, 8, 12, 16, 20].contains(values["tail"]!),
-                  [0.0, 1, 2].contains(values["palette"]!),
-                  (0...1).contains(values["glow"]!),
-                  [0.0, 1.0].contains(values["debugCPU"]!),
-                  [0.0, 1.0].contains(values["resumeFigure"]!),
-                  (0...1_000_000_000_000).contains(values["figureReset"]!),
-                  values["figureReset"]! == values["figureReset"]!.rounded() else { return nil }
-        }
-        return message
-    }
-    static func snapshot(_ defaults: UserDefaults) -> [String: Double] {
-        Dictionary(uniqueKeysWithValues: keys.map { ($0, defaults.double(forKey: $0)) })
-    }
-    static func register(_ view: ARoseView) {
-        guard ProcessInfo.processInfo.processName.hasPrefix("legacyScreenSaver") else { return }
-        views.add(view)
-        guard observer == nil else { return }
-        observer = DistributedNotificationCenter.default().addObserver(forName: request, object: nil, queue: .main) { notification in
-            guard let message = decode(notification.object),
-                  let defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose") else { return }
-            defaults.synchronize()
-            if let values = message.values {
-                if values["figureReset"] != defaults.double(forKey: "figureReset") {
-                    defaults.removeObject(forKey: "figureState.v1")
-                    defaults.removeObject(forKey: "previewFigureState.v1")
-                }
-                for (key, value) in values { defaults.set(value, forKey: key) }
-                guard defaults.synchronize() else { return }
-                for view in views.allObjects { view.applyConfiguration() }
-                configurationLog.notice("Settings received from preview and synchronized")
-            }
-            guard let reply = encode(Message(id: message.id, values: snapshot(defaults))) else { return }
-            // Sandboxed processes cannot attach userInfo to distributed notifications.
-            DistributedNotificationCenter.default().postNotificationName(response, object: reply, userInfo: nil, deliverImmediately: true)
-        }
     }
 }
 
@@ -609,6 +542,7 @@ final class RoseOptions: NSObject {
     private let speed = NSPopUpButton(), tail = NSPopUpButton(), palette = NSPopUpButton()
     private let appearance = NSPopUpButton()
     private let debugCPU = NSButton(checkboxWithTitle: roseText("Debug: show process CPU usage"), target: nil, action: nil)
+    private let scaleRetro = NSButton(checkboxWithTitle: roseText("Scale retro figures to display resolution"), target: nil, action: nil)
     private let resumeFigure = NSButton(checkboxWithTitle: roseText("Resume from last figure"), target: nil, action: nil)
     private var forgetPending = false
     private lazy var forgetButton = NSButton(title: roseText("Forget saved figure"), target: self, action: #selector(forgetAction))
@@ -620,13 +554,13 @@ final class RoseOptions: NSObject {
 
     init(defaults: UserDefaults, apply: @escaping () -> Void) {
         self.defaults = defaults; self.apply = apply
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 680),
                           styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
         // Retain the window for this presentation; subsequent requests get fresh content.
         window.isReleasedWhenClosed = false
         let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 560))
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 680))
         window.contentViewController = content
         window.title = roseText("ARose Settings")
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
@@ -655,6 +589,12 @@ final class RoseOptions: NSObject {
         glowValue.widthAnchor.constraint(equalToConstant: 72).isActive = true
         stack.addArrangedSubview(NSStackView(views: [glowLabel, glowSlider, glowValue]))
         debugCPU.toolTip = roseText("CPU normalization explanation")
+        stack.addArrangedSubview(scaleRetro)
+        let scaleNote = NSTextField(wrappingLabelWithString: roseText("Retro scaling explanation"))
+        scaleNote.font = .systemFont(ofSize: 11)
+        scaleNote.textColor = .secondaryLabelColor
+        scaleNote.widthAnchor.constraint(equalToConstant: 412).isActive = true
+        stack.addArrangedSubview(scaleNote)
         stack.addArrangedSubview(resumeFigure)
         stack.addArrangedSubview(forgetButton)
         stack.addArrangedSubview(debugCPU)
@@ -679,19 +619,32 @@ final class RoseOptions: NSObject {
         appearance.selectItem(at: defaults.integer(forKey: "appearance") == 1 ? 1 : 0)
         let storedGlow = defaults.double(forKey: "glow")
         glowSlider.doubleValue = storedGlow.isFinite ? min(100, max(0, storedGlow * 100)) : 0
+        scaleRetro.state = defaults.bool(forKey: "scaleRetro") ? .on : .off
         resumeFigure.state = defaults.bool(forKey: "resumeFigure") ? .on : .off
         debugCPU.state = defaults.bool(forKey: "debugCPU") ? .on : .off
         glowChanged()
         updatePalette()
     }
     @objc private func openUpdates() {
-        let app = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/ARose Preview.app")
-        if FileManager.default.fileExists(atPath: app.path) { NSWorkspace.shared.open(app) }
-        else {
+        // The system saver runs in a container: its home directory is not the
+        // user's home. Resolve the companion through Launch Services instead.
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "cz.coolajz.ARose.Preview") else {
             let alert = NSAlert()
             alert.messageText = roseText("Install the companion app to manage updates.")
             alert.informativeText = roseText("The standalone screen saver works without the companion app.")
             alert.addButton(withTitle: roseText("OK")); alert.beginSheetModal(for: window)
+            return
+        }
+        NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            guard let error else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let alert = NSAlert()
+                alert.messageText = roseText("Unable to open the companion app.")
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: roseText("OK"))
+                alert.beginSheetModal(for: self.window)
+            }
         }
     }
     @objc private func glowChanged() {
@@ -706,6 +659,7 @@ final class RoseOptions: NSObject {
         let modern = appearance.indexOfSelectedItem == 1
         palette.addItems(withTitles: modern ? [roseText("Smooth RGB rainbow")] : paletteTitles)
         palette.selectItem(at: modern ? 0 : originalPalette)
+        scaleRetro.isEnabled = !modern
         palette.isEnabled = !modern
         glowSlider.isEnabled = modern
         glowValue.textColor = modern ? .labelColor : .disabledControlTextColor
@@ -733,6 +687,7 @@ final class RoseOptions: NSObject {
             defaults.removeObject(forKey: "figureState.v1")
             defaults.removeObject(forKey: "previewFigureState.v1")
         }
+        defaults.set(scaleRetro.state == .on, forKey: "scaleRetro")
         defaults.set(resumeFigure.state == .on, forKey: "resumeFigure")
         defaults.set(debugCPU.state == .on, forKey: "debugCPU")
         defaults.set(speed.indexOfSelectedItem + 1, forKey: "speed")

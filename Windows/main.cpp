@@ -38,7 +38,7 @@ FrameTiming frameTiming;
 bool animationReady = false;
 std::deque<std::array<ModernPoint, 96>> previousHistory;
 unsigned renderedFrames = 0;
-constexpr wchar_t settingsKey[] = L"Software\\CooLajz\\ARose";
+const wchar_t* settingsKey = L"Software\\CooLajz\\ARose";
 const wchar_t* tr(const wchar_t* en, const wchar_t* cs) { return czech ? cs : en; }
 template<class T> void release(T*& p) { if (p) { p->Release(); p = nullptr; } }
 void chooseLanguage() {
@@ -53,9 +53,9 @@ void chooseLanguage() {
     }
 }
 void loadSettings() {
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure"};
-    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU, &settings.resumeFigure};
-    for (int i = 0; i < 7; ++i) {
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro"};
+    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU, &settings.resumeFigure, &settings.scaleRetro};
+    for (int i = 0; i < 8; ++i) {
         DWORD value = 0, bytes = sizeof value;
         if (RegGetValueW(HKEY_CURRENT_USER, settingsKey, names[i], RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value <= INT_MAX)
             *values[i] = static_cast<int>(value);
@@ -65,10 +65,10 @@ void loadSettings() {
 bool saveSettings(const Settings& s) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, settingsKey, 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) return false;
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure"};
-    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU, s.resumeFigure};
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro"};
+    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU, s.resumeFigure, s.scaleRetro};
     bool success = true;
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         DWORD v = static_cast<DWORD>(values[i]);
         success = (RegSetValueExW(key, names[i], 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v) == ERROR_SUCCESS) && success;
     }
@@ -138,6 +138,7 @@ void resetEngine() { ++engineGeneration; lastFigureSave = 0; animationReady = fa
 int selection(HWND d, int id) { return static_cast<int>(SendDlgItemMessageW(d, id, CB_GETCURSEL, 0, 0)); }
 void updateDialog(HWND d) {
     bool modern = selection(d, IDC_STYLE) == 1;
+    EnableWindow(GetDlgItem(d, IDC_SCALE_RETRO), !modern);
     EnableWindow(GetDlgItem(d, IDC_PALETTE), !modern);
     EnableWindow(GetDlgItem(d, IDC_GLOW), modern);
     EnableWindow(GetDlgItem(d, IDC_PERCENT), modern);
@@ -175,6 +176,9 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         SetDlgItemTextW(d,IDC_DEBUG_CPU,tr(L"Debug: show process CPU usage",L"Debug: zobrazovat vytížení procesu"));
         CheckDlgButton(d,IDC_DEBUG_CPU,settings.debugCPU?BST_CHECKED:BST_UNCHECKED);
         SetDlgItemTextW(d,IDC_RESUME_FIGURE,tr(L"Resume from last figure",L"Pokračovat od posledního obrazce"));
+        SetDlgItemTextW(d,IDC_SCALE_RETRO,tr(L"Scale retro figures to display resolution",L"Zvětšovat retro obrazce podle rozlišení"));
+        SetDlgItemTextW(d,IDC_SCALE_NOTE,tr(L"Enlarges retro figures according to display resolution. The Amiga kept a fixed size; the later WinRose introduced resolution-based scaling. Disable to keep the original size.",L"Zvětší retro obrazce podle rozlišení displeje. Amiga zachovávala pevnou velikost; novější WinRose přidal zvětšování podle rozlišení. Vypnutím zachováte původní velikost."));
+        CheckDlgButton(d,IDC_SCALE_RETRO,settings.scaleRetro?BST_CHECKED:BST_UNCHECKED);
         CheckDlgButton(d,IDC_RESUME_FIGURE,settings.resumeFigure?BST_CHECKED:BST_UNCHECKED);
         updateDialog(d); return TRUE;
     }
@@ -203,6 +207,7 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         if(LOWORD(wp)==IDCANCEL) { EndDialog(d,IDCANCEL); return TRUE; }
         if(LOWORD(wp)==IDOK) {
             Settings s = settings;
+            s.scaleRetro=IsDlgButtonChecked(d,IDC_SCALE_RETRO)==BST_CHECKED?1:0;
             s.resumeFigure=IsDlgButtonChecked(d,IDC_RESUME_FIGURE)==BST_CHECKED?1:0;
             s.debugCPU=IsDlgButtonChecked(d,IDC_DEBUG_CPU)==BST_CHECKED?1:0;
             s.appearance=selection(d,IDC_STYLE); s.speed=selection(d,IDC_SPEED)+1;
@@ -229,6 +234,29 @@ struct Renderer {
     bool gpuFailed=false;
     bool hardware=false;
     PreparedFrame prepared;
+    bool fullScreen=false;
+    WINDOWPLACEMENT windowPlacement{};
+    LONG_PTR windowStyle=0;
+    void toggleFullScreen(HWND w) {
+        if(!fullScreen) {
+            windowPlacement.length=sizeof windowPlacement;
+            MONITORINFO monitor{}; monitor.cbSize=sizeof monitor;
+            if(!GetWindowPlacement(w,&windowPlacement) ||
+               !GetMonitorInfoW(MonitorFromWindow(w,MONITOR_DEFAULTTONEAREST),&monitor)) return;
+            windowStyle=GetWindowLongPtrW(w,GWL_STYLE);
+            fullScreen=true;
+            SetWindowLongPtrW(w,GWL_STYLE,windowStyle & ~WS_OVERLAPPEDWINDOW);
+            const auto& r=monitor.rcMonitor;
+            SetWindowPos(w,nullptr,r.left,r.top,r.right-r.left,r.bottom-r.top,
+                         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_FRAMECHANGED);
+        } else {
+            fullScreen=false;
+            SetWindowLongPtrW(w,GWL_STYLE,windowStyle);
+            SetWindowPlacement(w,&windowPlacement);
+            SetWindowPos(w,nullptr,0,0,0,0,
+                         SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_FRAMECHANGED);
+        }
+    }
     std::unique_ptr<Engine> retroEngine;
     uint64_t retroGeneration = 0;
     int cachedPalette = -1;
@@ -392,7 +420,11 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
             if(wp==VK_F1 && !benchmark.enabled) { paused=true; auto state=engine->savedFigure(); showSettings(w); resetEngine(); if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state); paused=false; }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }
             if(wp=='R') resetEngine();
-            if(wp==VK_ESCAPE) PostQuitMessage(0);
+            if(wp=='F' && renderer && !(lp & (1LL<<30))) renderer->toggleFullScreen(w);
+            if(wp==VK_ESCAPE) {
+                if(renderer && renderer->fullScreen) renderer->toggleFullScreen(w);
+                else PostQuitMessage(0);
+            }
         } else PostQuitMessage(0);
         return 0;
     case WM_LBUTTONDOWN: case WM_RBUTTONDOWN: case WM_MBUTTONDOWN: case WM_MOUSEWHEEL:
@@ -410,14 +442,14 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
 }
 bool addWindow(RECT r, HWND parent=nullptr) {
     DWORD style=preview?WS_CHILD|WS_VISIBLE:windowed?WS_OVERLAPPEDWINDOW|WS_VISIBLE:WS_POPUP|WS_VISIBLE;
-    HWND w=CreateWindowExW(!preview && !windowed?WS_EX_TOPMOST:0,L"ARoseScreenSaver",tr(L"ARose Preview — F1: Settings · Space: Pause · R: Restart",L"Náhled ARose — F1: Nastavení · Mezerník: Pauza · R: Znovu"),style,r.left,r.top,r.right-r.left,r.bottom-r.top,parent,nullptr,instance,nullptr);
+    HWND w=CreateWindowExW(!preview && !windowed?WS_EX_TOPMOST:0,L"ARoseScreenSaver",tr(L"ARose Preview — F1: Settings · Space: Pause · R: Restart · F: Full Screen",L"Náhled ARose — F1: Nastavení · Mezerník: Pauza · R: Znovu · F: Celá obrazovka"),style,r.left,r.top,r.right-r.left,r.bottom-r.top,parent,nullptr,instance,nullptr);
     if(w) windows.push_back(w);
     return w!=nullptr;
 }
 BOOL CALLBACK monitorProc(HMONITOR, HDC, LPRECT rect, LPARAM) { return addWindow(*rect)?TRUE:FALSE; }
 }
 int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
-    instance=h; chooseLanguage(); loadSettings();
+    instance=h; chooseLanguage();
     wchar_t rendererOverride[32]{};
     GetEnvironmentVariableW(L"AROSE_WINDOWS_RENDERER",rendererOverride,32);
     referenceRenderer=std::wstring(rendererOverride)==L"reference";
@@ -430,6 +462,9 @@ int WINAPI wWinMain(HINSTANCE h,HINSTANCE,PWSTR,int) {
     std::wstring arg=argc>1?argv[1]:L"/c";
     for(auto& c:arg) c=static_cast<wchar_t>(std::towlower(c));
     wchar_t mode=arg.size()>=2 && (arg[0]==L'/' || arg[0]==L'-')?arg[1]:0;
+    // Windowed companion playback has independent preferences and bookmarks.
+    if(mode==L'w' || mode==L't') settingsKey=L"Software\\CooLajz\\ARose\\Preview";
+    loadSettings();
     HWND parent=nullptr;
     bool valid = arg.size()==2 || (arg.size()>3 && arg[2]==L':' && (mode==L'p'||mode==L'c'));
     if(mode==L'p'||mode==L'c') {

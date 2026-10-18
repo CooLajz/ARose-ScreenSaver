@@ -35,10 +35,6 @@
 "Restart" = "Restart";
 "Advance Animation" = "Advance Animation";
 "Full Screen" = "Full Screen";
-"Settings received by the system screen saver" = "Settings received by the system screen saver";
-"Settings saved only in the preview" = "Settings saved only in the preview";
-"The running ARose host confirmed that it received and saved the settings." = "The running ARose host confirmed that it received and saved the settings.";
-"The system screen saver did not confirm receipt. Open System Settings → Wallpaper → Screen Saver, select ARose, and leave the preview running. Then save the settings here again." = "The system screen saver did not confirm receipt. Open System Settings → Wallpaper → Screen Saver, select ARose, and leave the preview running. Then save the settings here again.";
 "OK" = "OK";
 "Debug: show process CPU usage" = "Debug: show process CPU usage";
 "Process · all CPU cores" = "Process · all CPU cores";
@@ -74,3 +70,24 @@
 "Installation and updates…" = "Installation and updates…";
 "Install the companion app to manage updates." = "Install the companion app to manage updates.";
 "The standalone screen saver works without the companion app." = "The standalone screen saver works without the companion app.";
+
+"Scale retro figures to display resolution" = "Scale retro figures to display resolution";
+"Retro scaling explanation" = "Enlarges retro figures according to display resolution. The Amiga kept a fixed size; the later WinRose introduced resolution-based scaling. Disable to keep the original size.";
+
+"Unable to open the companion app." = "Unable to open the companion app.";
+
+"Install ARose screen saver…" = "Install ARose screen saver…";
+
+"Uninstall ARose screen saver…" = "Uninstall ARose screen saver…";
+
+"Uninstall ARose screen saver?" = "Uninstall ARose screen saver?";
+
+"The companion app and saved settings will remain. The screen saver will be moved to the Trash." = "The companion app and saved settings will remain. The screen saver will be moved to the Trash.";
+
+"Uninstall" = "Uninstall";
+
+"ARose screen saver was uninstalled." = "ARose screen saver was uninstalled.";
+
+"Quit and reopen System Settings to refresh the screen saver list." = "Quit and reopen System Settings to refresh the screen saver list.";
+
+"Unable to uninstall the screen saver." = "Unable to uninstall the screen saver.";

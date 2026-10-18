@@ -6,8 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var rose: ARoseView!
     var timer: Timer?
     var updateTimer: Timer?
-    private var settingsObserver: NSObjectProtocol?
-    private var pendingSettingsID: String?
     func applicationDidFinishLaunching(_ notification: Notification) {
         MacUpdates.shared.synchronizeSaver()
         if CommandLine.arguments.contains("--check-background") {
@@ -27,24 +25,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.addTitlebarAccessoryViewController(accessory)
         window.minSize = NSSize(width: 400, height: 320)
         window.collectionBehavior = [.fullScreenPrimary]
-        rose = ARoseView(frame: window.contentView!.bounds, isPreview: false)!
+        rose = ARoseView(frame: window.contentView!.bounds, isPreview: false,
+                         settings: UserDefaults.standard)!
         rose.figureStorageKey = "previewFigureState.v1"
         rose.startAnimation()
-        rose.configurationSaved = { [weak self] in
-            // Let the local sheet finish before showing the transfer result.
-            DispatchQueue.main.async { self?.sendSettings() }
-        }
         rose.autoresizingMask = [.width, .height]
         window.contentView = rose
         window.center(); window.makeKeyAndOrderFront(nil)
         let menu = NSMenu()
         let appItem = NSMenuItem(); menu.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
-        for (title, action) in [("Install ARose…", #selector(MacUpdates.install)),
+        for (title, action) in [("Install ARose screen saver…", #selector(MacUpdates.manageSaver)),
                                  ("Check for Updates…", #selector(MacUpdates.manualCheck)),
                                  ("Check automatically every week", #selector(MacUpdates.toggleWeekly))] {
             let item = appMenu.addItem(withTitle: roseText(title), action: action, keyEquivalent: "")
             item.target = MacUpdates.shared
+        }
+        if !MacUpdates.shared.installed {
+            let installApp = appMenu.addItem(withTitle: roseText("Install ARose…"), action: #selector(MacUpdates.install), keyEquivalent: "")
+            installApp.target = MacUpdates.shared
         }
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: roseText("Quit ARose"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -76,64 +75,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func settings() {
-        guard pendingSettingsID == nil, window.attachedSheet == nil else { return }
-        let id = UUID().uuidString
-        pendingSettingsID = id
-        settingsObserver = DistributedNotificationCenter.default().addObserver(forName: RoseSettingsBridge.response, object: nil, queue: .main) { [weak self] notification in
-            guard let self, self.pendingSettingsID == id,
-                  let reply = RoseSettingsBridge.decode(notification.object), reply.id == id,
-                  let values = reply.values,
-                  let defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose") else { return }
-            for (key, value) in values { defaults.set(value, forKey: key) }
-            defaults.synchronize()
-            self.rose.applyConfiguration()
-            self.showSettings()
-        }
-        if let payload = RoseSettingsBridge.encode(.init(id: id, values: nil)) {
-            DistributedNotificationCenter.default().postNotificationName(RoseSettingsBridge.request, object: payload, userInfo: nil, deliverImmediately: true)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            guard self?.pendingSettingsID == id else { return }
-            self?.showSettings()
-        }
-    }
-    private func showSettings() {
-        pendingSettingsID = nil
-        if let settingsObserver { DistributedNotificationCenter.default().removeObserver(settingsObserver) }
-        settingsObserver = nil
+        guard window.attachedSheet == nil else { return }
         if let sheet = rose.configureSheet { window.beginSheet(sheet) }
-    }
-    private func sendSettings() {
-        guard let defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose") else { return }
-        let values = RoseSettingsBridge.snapshot(defaults)
-        let id = UUID().uuidString
-        pendingSettingsID = id
-        if let settingsObserver { DistributedNotificationCenter.default().removeObserver(settingsObserver) }
-        settingsObserver = DistributedNotificationCenter.default().addObserver(forName: RoseSettingsBridge.response, object: nil, queue: .main) { [weak self] notification in
-            guard let self, self.pendingSettingsID == id,
-                  let reply = RoseSettingsBridge.decode(notification.object), reply.id == id,
-                  reply.values == values else { return }
-            self.finishSettingsTransfer(success: true)
-        }
-        if let payload = RoseSettingsBridge.encode(.init(id: id, values: values)) {
-            DistributedNotificationCenter.default().postNotificationName(RoseSettingsBridge.request, object: payload, userInfo: nil, deliverImmediately: true)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard self?.pendingSettingsID == id else { return }
-            self?.finishSettingsTransfer(success: false)
-        }
-    }
-    private func finishSettingsTransfer(success: Bool) {
-        pendingSettingsID = nil
-        if let settingsObserver { DistributedNotificationCenter.default().removeObserver(settingsObserver) }
-        settingsObserver = nil
-        let alert = NSAlert()
-        alert.messageText = success ? roseText("Settings received by the system screen saver") : roseText("Settings saved only in the preview")
-        alert.informativeText = success
-            ? roseText("The running ARose host confirmed that it received and saved the settings.")
-            : roseText("The system screen saver did not confirm receipt. Open System Settings → Wallpaper → Screen Saver, select ARose, and leave the preview running. Then save the settings here again.")
-        alert.addButton(withTitle: roseText("OK"))
-        alert.beginSheetModal(for: window)
     }
     @objc func pause() { rose.paused.toggle() }
     @objc func restart() { rose.reset() }

@@ -71,7 +71,8 @@ Preview shortcuts: **⌘ ,** settings, **⌘ F** full screen, **⌘ P** pause, *
 
 ## Known limitations
 
-- The system **Options** button can stop displaying the configuration panel. Restarting System Settings may temporarily help. To configure through the companion app, keep the system’s animated ARose preview open, open the app’s settings, and save. A confirmation explicitly states whether the system host acknowledged the settings. Otherwise they are saved only in the preview app; retry while the system preview is running. This does not repair the macOS host bug.
+- The companion app and system screen saver have independent settings and saved figures on both platforms. Configure the saver through the system's Options/Settings button; experimenting in the app does not change it.
+- The system **Options** button can stop displaying the configuration panel. Quitting and reopening System Settings may temporarily help. This is a macOS host issue.
   Local retesting on 17 October 2026 reproduced failure after closing and reopening the entire screen saver picker. ARose received the second request and returned fresh 460 × 450 content, but no dialog appeared. Explicit controller sizing and alternate modal-session dismissal did not resolve it and were reverted. The built-in Message saver passed the same sequence; this does not establish whether the remaining failure is in ARose integration or the legacy host. Configuration lifecycle tests do not cover that cross-process presentation.
 - The system picker may display its generic thumbnail despite the bundled preview images; animated previews work.
 - No frame-by-frame equivalence with physical or emulated Amiga hardware has been measured. Original saved-animation state is not implemented.
@@ -128,8 +129,10 @@ The system may lower the actual refresh rate under power or display constraints.
 
 On macOS and Windows, Original Amiga mode renders at the drawable's physical
 pixel resolution, including Retina and high-DPI displays. Like Modern mode,
-figure coordinates scale uniformly by the shorter pixel dimension divided by 640,
-while retro dots remain single pixels. Original integer quantization, palettes
+the default-enabled “Scale retro figures to display resolution” option scales
+figure coordinates uniformly by the shorter pixel dimension divided by 640,
+while retro dots remain single pixels. Disable it to keep a fixed pixel size,
+as on the Amiga; resolution-based enlargement was introduced by WinRose. Original integer quantization, palettes
 and trail erasure are retained. The initial simulation target radius is 150,
 independent of the display; resizing preserves the figure and clears its trail.
 Windows keeps a separate raster for each monitor without stretching the bitmap.

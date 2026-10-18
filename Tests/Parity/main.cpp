@@ -30,6 +30,16 @@ int main(int argc,char**) {
                std::any_of(enlarged.pixels.begin(),enlarged.pixels.end(),[](uint8_t c){return c!=0;})) return 16;
         }
         std::cout<<"PASS: native retro scaling preserves proportions, single pixels and figure state\n";
+        Engine fixedSmall, fixedLarge;
+        fixedSmall.settings.appearance=fixedLarge.settings.appearance=0;
+        fixedSmall.settings.scaleRetro=fixedLarge.settings.scaleRetro=0;
+        fixedSmall.settings.tail=fixedLarge.settings.tail=1;
+        fixedLarge.resizeRaster(1600,1200);
+        for(int i=0;i<100;++i) { fixedSmall.step(); fixedLarge.step(); }
+        std::vector<uint8_t> fixedExpected(1600*1200);
+        for(int y=0;y<600;++y) for(int x=0;x<800;++x)
+            fixedExpected[(y+300)*1600+x+400]=fixedSmall.pixels[y*800+x];
+        if(fixedExpected!=fixedLarge.pixels || fixedSmall.savedFigure()!=fixedLarge.savedFigure()) return 17;
         for(int speed=1; speed<=5; ++speed) {
             Engine opening; opening.settings.speed=speed;
             opening.step();

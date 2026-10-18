@@ -13,8 +13,9 @@ namespace arose {
 struct Point { int x = 0, y = 0; };
 struct ModernPoint { double x, y, hue; };
 struct Settings {
-    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0, resumeFigure = 0;
+    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0, resumeFigure = 0, scaleRetro = 1;
     void validate() {
+        scaleRetro = scaleRetro == 1 ? 1 : 0;
         debugCPU = debugCPU == 1 ? 1 : 0;
         resumeFigure = resumeFigure == 1 ? 1 : 0;
         appearance = std::clamp(appearance, 0, 1);
@@ -103,7 +104,7 @@ public:
             const int u = (radiusA * sine[t.angle] + radiusB * sine[phi]) / 4096;
             const int v = (radiusA * cosine[t.angle] + radiusB * cosine[phi]) / 4096;
             // Scale coordinates, not the bitmap, preserving square single-pixel dots.
-            const int extent = settings.appearance == 0 ? std::min(rasterWidth, rasterHeight) : 640;
+            const int extent = settings.appearance == 0 && settings.scaleRetro ? std::min(rasterWidth, rasterHeight) : 640;
             Point p{rasterWidth / 2 + int(int64_t((v * cr - u * sr) / 4096) * extent / 640),
                     rasterHeight / 2 - int(int64_t((v * sr + u * cr) / 4096) * extent / 640)};
             t.history[slot] = p.x >= 0 && p.x < rasterWidth && p.y >= 0 && p.y < rasterHeight ? p : Point{};

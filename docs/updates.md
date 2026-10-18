@@ -19,7 +19,6 @@ to the 64-bit Windows system directory for screen saver discovery. Installation
 and updates require administrator approval. HKLM stores the installation path;
 preferences and weekly checking remain per-user. Uninstall removes update tasks
 whose executable path matches this installation, without changing user preferences.
-Uninstall an early per-user development build before installing this layout.
 Standalone `.saver.zip` and `.scr` assets have no updater dependency.
 
 Manual checking is always available in the installed companion. Weekly checking
