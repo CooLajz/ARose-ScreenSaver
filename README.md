@@ -6,7 +6,7 @@
 
 **Watch ARose in motion**
 
-https://github.com/user-attachments/assets/b8c67746-8197-4f5f-9714-1877c5d0dc92
+https://github.com/user-attachments/assets/e13a567a-e7d0-4941-a7a4-8a1b727e00d8
 
 ## The story behind the revival
 
