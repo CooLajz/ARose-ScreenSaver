@@ -301,17 +301,19 @@ final class RoseMetalRenderer {
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: gpuCount)
         }
         if !interpolateOnGPU && glow > 0 && !history.isEmpty {
-            let scale = min(size.width, size.height) / 640
-            let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600))
-            let halo = diameter * (4 + 12 * glow) * backing
+            let logicalWidth = Double(size.width), logicalHeight = Double(size.height)
+            let pixelScale = Double(backing)
+            let scale = min(logicalWidth, logicalHeight) / 640
+            let diameter = max(1 / pixelScale, min(1.8, min(logicalWidth, logicalHeight) / 600))
+            let halo = diameter * (4 + 12 * glow) * pixelScale
             var instances = [Sprite](); instances.reserveCapacity(history.count * 96)
             for (age, points) in history.enumerated() {
                 let alpha = glow * (0.25 + 0.75 * Double(age + 1) / Double(history.count)) * 0.5
                 for p in points {
                     // Keep intermediate types explicit for older Swift compilers
                     // used by CI; preserve the original arithmetic order.
-                    let x = Float((size.width/2 + p.x*scale)*backing - halo/2)
-                    let y = Float((size.height/2 - p.y*scale)*backing - halo/2)
+                    let x = Float((logicalWidth/2 + p.x*scale)*pixelScale - halo/2)
+                    let y = Float((logicalHeight/2 - p.y*scale)*pixelScale - halo/2)
                     let rect = SIMD4<Float>(x, y, Float(halo), Float(halo))
                     let parameters = SIMD4<Float>(Float(min(255, Int(p.hue*256))), Float(alpha), 0, 0)
                     instances.append(Sprite(rect: rect, parameters: parameters))
