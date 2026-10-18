@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>cz.coolajz.ARose.UpdateCheck</string>
-<key>BundleProgram</key><string>Contents/MacOS/ARose Preview</string>
-<key>ProgramArguments</key><array><string>ARose Preview</string><string>--check-background</string></array>
+<key>BundleProgram</key><string>Contents/MacOS/ARose</string>
+<key>ProgramArguments</key><array><string>ARose</string><string>--check-background</string></array>
 <key>StartInterval</key><integer>3600</integer>
 <key>RunAtLoad</key><true/>
 <key>ProcessType</key><string>Background</string>

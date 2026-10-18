@@ -6,7 +6,7 @@ advertise a platform as tested based solely on successful cross-compilation.
 
 ## Current status
 
-- Native macOS saver and preview app; universal arm64/x86_64.
+- Native macOS app with embedded `.appex` and independent classic `.saver`; universal arm64/x86_64.
 - Native Windows C++/Win32 port with Direct3D 11 Modern rendering and Direct2D
   fallback, native `.scr`, embedded preview,
   settings, multi-monitor windows, and English/Czech UI. Primary target: Windows
@@ -71,8 +71,9 @@ Use Developer ID Application signing, a secure timestamp and an appropriate
 hardened-runtime configuration for the preview app; verify the screen saver
 bundle in its actual system host. Submit the intended distribution archive to
 Apple with `notarytool`, inspect the result, staple tickets where supported,
-and validate on a clean Mac after downloading the final artifact. Test the
-`.saver` installation and companion app independently. If a `.pkg` is added,
+and validate on a clean Mac after downloading the final artifact. Sign the embedded extension before the outer app, preserving its sandbox entitlement.
+Test drag-installing the DMG, registering the extension, repeated Options
+presentation, and the independent `.saver` installation. If a `.pkg` is added,
 it requires its own suitable installer signature and testing.
 
 No public signing automation is enabled yet: it needs the proper certificate,
@@ -103,7 +104,7 @@ this repository. Do not turn off Gatekeeper to make the release appear ready.
 
 ## Release process
 
-Use a single version tag, e.g. `v1.0.4`, after matching versions in both macOS
+Use a single version tag, e.g. `v1.0.4`, after matching versions in all three macOS
 Info.plists and Windows resource, manifest, and CMake files. Packaging reads the macOS version and rejects a mismatched Windows binary. Current
 `1.0.3` describes the local development baseline, not an already published release.
 

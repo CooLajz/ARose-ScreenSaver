@@ -91,3 +91,15 @@
 "Quit and reopen System Settings to refresh the screen saver list." = "Quit and reopen System Settings to refresh the screen saver list.";
 
 "Unable to uninstall the screen saver." = "Unable to uninstall the screen saver.";
+
+"Screen Saver Settings…" = "Screen Saver Settings…";
+
+"Move ARose to Applications, then quit and reopen the app." = "Move ARose to Applications, then quit and reopen the app.";
+
+"Unable to register the screen saver." = "Unable to register the screen saver.";
+
+"Use the standalone screen saver on macOS 13." = "Use the standalone screen saver on macOS 13.";
+
+"Download ARose.saver from GitHub Releases and open it in Finder." = "Download ARose.saver from GitHub Releases and open it in Finder.";
+
+"Unable to refresh the screen saver." = "Unable to refresh the screen saver.";

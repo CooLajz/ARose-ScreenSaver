@@ -4,7 +4,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 MODE="${1:-run}"
 case "$MODE" in run|--build|--verify|--debug|--logs|--telemetry) ;; *) echo 'Použití: script/build_and_run.sh [--build|--verify|--debug|--logs|--telemetry]' >&2; exit 2;; esac
-if [[ "$MODE" != --build ]]; then pkill -x 'ARose Preview' >/dev/null 2>&1 || true; fi
+if [[ "$MODE" != --build ]]; then pkill -x 'ARose' >/dev/null 2>&1 || true; fi
 mkdir -p .build dist
 python3 script/fetch_updaters.py macos
 xcodebuild -project ARose.xcodeproj -scheme ARose -configuration Release \
@@ -16,17 +16,19 @@ xcodebuild -project ARose.xcodeproj -scheme ARose -configuration Release \
 # assembled outside that directory as the durable installation artifacts.
 STAGING_DIR="$(mktemp -d /private/tmp/arose-package.XXXXXX)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
-for name in 'ARose.saver' 'ARose Preview.app'; do
+for name in 'ARose.saver' 'ARose.app'; do
     ditto --norsrc --noextattr ".build/Build/Products/Release/$name" "$STAGING_DIR/$name"
-    if [[ "$name" == 'ARose Preview.app' ]]; then
+    if [[ "$name" == 'ARose.app' ]]; then
         mkdir -p "$STAGING_DIR/$name/Contents/Frameworks" "$STAGING_DIR/$name/Contents/Library/LaunchAgents"
         ditto --norsrc --noextattr .build/updaters/Sparkle.framework "$STAGING_DIR/$name/Contents/Frameworks/Sparkle.framework"
         cp Resources/LaunchAgents/*.plist "$STAGING_DIR/$name/Contents/Library/LaunchAgents/"
-        ditto --norsrc --noextattr "$STAGING_DIR/ARose.saver" "$STAGING_DIR/$name/Contents/Resources/ARose.saver"
+        codesign --force --sign - --timestamp=none --entitlements Resources/Extension.entitlements "$STAGING_DIR/$name/Contents/PlugIns/ARoseExtension.appex"
+        codesign --verify --strict "$STAGING_DIR/$name/Contents/PlugIns/ARoseExtension.appex"
         cp .build/updaters/LICENSE "$STAGING_DIR/$name/Contents/Resources/Sparkle-LICENSE.txt"
     fi
+    cp LICENSE THIRD_PARTY_NOTICES.md "$STAGING_DIR/$name/Contents/Resources/"
     codesign --force --sign - --timestamp=none "$STAGING_DIR/$name"
-    codesign --verify --strict "$STAGING_DIR/$name"
+    codesign --verify --deep --strict "$STAGING_DIR/$name"
     ditto -c -k --norsrc --noextattr --keepParent "$STAGING_DIR/$name" "dist/$name.zip"
     ditto --norsrc --noextattr "$STAGING_DIR/$name" "dist/$name"
     xattr -dr com.apple.FinderInfo "dist/$name" 2>/dev/null || true
@@ -35,8 +37,8 @@ done
 echo 'Sestaveny balíčky a instalační ZIP archivy ve složce dist/'
 case "$MODE" in
     --build) ;;
-    --debug) lldb -- 'dist/ARose Preview.app/Contents/MacOS/ARose Preview' ;;
-    --logs|--telemetry) open -n 'dist/ARose Preview.app'; /usr/bin/log stream --info --style compact --predicate 'process == "ARose Preview"' ;;
-    --verify) open -n 'dist/ARose Preview.app'; sleep 2; pgrep -x 'ARose Preview' >/dev/null; echo 'Aplikace běží.' ;;
-    run) open -n 'dist/ARose Preview.app' ;;
+    --debug) lldb -- 'dist/ARose.app/Contents/MacOS/ARose' ;;
+    --logs|--telemetry) open -n 'dist/ARose.app'; /usr/bin/log stream --info --style compact --predicate 'process == "ARose"' ;;
+    --verify) open -n 'dist/ARose.app'; sleep 2; pgrep -x 'ARose' >/dev/null; echo 'Aplikace běží.' ;;
+    run) open -n 'dist/ARose.app' ;;
 esac

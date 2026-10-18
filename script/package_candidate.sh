@@ -11,7 +11,7 @@ LABEL="${1:-development}"
 [[ "$LABEL" =~ ^[a-z0-9-]+$ ]] || { echo 'Invalid package label' >&2; exit 1; }
 NAME="ARose-ScreenSaver-v${VERSION}-macOS-universal-${LABEL}"
 mkdir -p "$STAGING_DIR/$NAME" dist/releases
-for bundle in 'ARose.saver' 'ARose Preview.app'; do
+for bundle in 'ARose.saver' 'ARose.app'; do
     ditto -x -k "dist/$bundle.zip" "$STAGING_DIR/$NAME"
     codesign --verify --strict "$STAGING_DIR/$NAME/$bundle"
     INFO="$STAGING_DIR/$NAME/$bundle/Contents/Info.plist"

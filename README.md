@@ -12,7 +12,7 @@ A native recreation of the Amiga BlitzBlank ARose screen saver, with an optional
 - **Modern:** smooth points at the display’s resolution, a continuous rainbow palette and adjustable glow.
 - New installations default to **Modern, 80% glow and a long trail**. Updates preserve saved settings.
 - English and Czech UI, selected from macOS language preferences; English fallback.
-- Native `.saver` and a companion preview app with settings and full-screen playback.
+- A drag-installed `ARose.app` with an embedded screen saver extension, plus a standalone `.saver` for older systems. All Mac variants share the renderer and settings UI.
 
 ## Availability
 
@@ -20,10 +20,10 @@ This repository is being prepared for its first public release. No public downlo
 
 | Platform | Status | Intended download |
 | --- | --- | --- |
-| macOS | Implemented; public distribution preparation in progress | Universal ZIP with `.saver` and preview app |
+| macOS | Implemented; public distribution preparation in progress | Universal drag-to-Applications DMG; separate standalone `.saver.zip` |
 | Windows | Initial x64 port; runtime acceptance pending | Native `.scr` in a ZIP with installation instructions |
 
-The macOS deployment target is 13 or later. Both Apple Silicon and Intel architectures are built; manual validation has been performed on a Mac M2. Intel hardware and the full supported OS range have not been tested.
+The app and standalone `.saver` target macOS 13 or later; the embedded `.appex` targets macOS 14 or later and uses private ScreenSaver APIs. Both Apple Silicon and Intel architectures are built; manual validation has been performed on a Mac M2. Intel hardware and the full supported OS range have not been tested.
 
 Future GitHub Releases can carry downloads for both platforms under one version. Development artifacts are **ad-hoc signed, not notarized** and are not a finished public installer. See the [release guide](docs/releases.md) for the outstanding distribution requirements.
 
@@ -36,6 +36,7 @@ Install Xcode and select its command-line tools, then run from the repository ro
 ./script/build_and_run.sh --build  # Build only
 ./script/test.sh                   # Run after building
 ./script/package_candidate.sh      # Package a local development candidate
+./script/package_macos_installer.sh # Create the drag-to-Applications DMG
 ```
 
 Build logs are in `.build/build.log`. Clean installation archives are in `dist/`. Use the ZIPs rather than re-zipping loose bundles: managed Documents folders can add Finder metadata that invalidates signatures.
@@ -60,10 +61,10 @@ Windows acceptance. See [Windows installation notes](Windows/INSTALL.txt).
 
 ## Local macOS installation
 
-1. Extract `dist/ARose.saver.zip` into Downloads.
-2. Open `ARose.saver` in Finder and follow the macOS installation prompt. If no prompt appears, copy it into `~/Library/Screen Savers/` and reopen System Settings.
-3. Select ARose in the screen saver settings. Their location varies by macOS version.
-4. Extract `dist/ARose Preview.app.zip` to use the companion preview.
+1. Open the DMG in `dist/releases/` and drag **ARose** onto **Applications**.
+2. Open `/Applications/ARose.app` once, then choose **Screen Saver Settings…** in its menu and select ARose in System Settings. After replacing an existing app, open the installed copy once. It automatically refreshes the screen saver host and reopens System Settings if it was running.
+3. The screen saver extension stays inside the app. The app does not copy a `.saver` into your Library and does not need to remain open.
+4. On macOS 13, or to use the classic format independently, extract `dist/ARose.saver.zip` and open `ARose.saver` in Finder. The classic and extension versions have separate preferences; installing both is optional.
 
 These locally signed builds may be blocked when transferred to another computer. A notarized public distribution is still pending; this project does not disable macOS security protections.
 
@@ -72,9 +73,8 @@ Preview shortcuts: **⌘ ,** settings, **⌘ F** full screen, **⌘ P** pause, *
 ## Known limitations
 
 - The companion app and system screen saver have independent settings and saved figures on both platforms. Configure the saver through the system's Options/Settings button; experimenting in the app does not change it.
-- The system **Options** button can stop displaying the configuration panel. Quitting and reopening System Settings may temporarily help. This is a macOS host issue.
-  Local retesting on 17 October 2026 reproduced failure after closing and reopening the entire screen saver picker. ARose received the second request and returned fresh 460 × 450 content, but no dialog appeared. Explicit controller sizing and alternate modal-session dismissal did not resolve it and were reverted. The built-in Message saver passed the same sequence; this does not establish whether the remaining failure is in ARose integration or the legacy host. Configuration lifecycle tests do not cover that cross-process presentation.
-- The system picker may display its generic thumbnail despite the bundled preview images; animated previews work.
+- The classic `.saver` can still suffer from the legacy host's Options dialog failure after closing and reopening the picker. The app's `.appex` uses a dedicated configuration controller and avoids that legacy presentation path. Repeated picker close/reopen and Save/Cancel were verified locally on macOS 27.0.1; this is not acceptance of every macOS version.
+- The extension API is private and may change in future macOS releases. macOS 14–26 and Intel runtime acceptance remain pending. See [extension implementation and validation](docs/macos-extension.md).
 - No frame-by-frame equivalence with physical or emulated Amiga hardware has been measured. Original saved-animation state is not implemented.
 
 Tests exercise 600,000 simulation frames, settings validation, localization, actual saver-bundle loading, resizing and glow behavior. They do not replace manual testing inside System Settings or long-running performance checks.

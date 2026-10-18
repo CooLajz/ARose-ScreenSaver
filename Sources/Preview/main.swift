@@ -7,11 +7,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
     var updateTimer: Timer?
     func applicationDidFinishLaunching(_ notification: Notification) {
-        MacUpdates.shared.synchronizeSaver()
         if CommandLine.arguments.contains("--check-background") {
-            MacUpdates.shared.check(background: true, headless: true)
+            guard !NSWorkspace.shared.runningApplications.contains(where: {
+                $0.bundleIdentifier == Bundle.main.bundleIdentifier && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
+            }) else { NSApp.terminate(nil); return }
+            // Sparkle preserves launch arguments when restarting a background
+            // update check. Prepare the new extension before this process exits.
+            MacUpdates.shared.registerScreenSaver(headless: true) {
+                MacUpdates.shared.check(background: true, headless: true)
+            }
             return
         }
+        MacUpdates.shared.registerScreenSaver()
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 720),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
@@ -19,8 +26,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let accessory = NSTitlebarAccessoryViewController()
         let updates = NSButton(title: roseText("Check for Updates…"), target: MacUpdates.shared, action: #selector(MacUpdates.manualCheck))
         updates.bezelStyle = .rounded
-        let bar = NSStackView(views: [updates])
-        bar.frame = NSRect(x: 0, y: 0, width: 260, height: 32)
+        let settingsButton = NSButton(title: roseText("Settings…"), target: self, action: #selector(settings))
+        settingsButton.bezelStyle = .rounded
+        let bar = NSStackView(views: [updates, settingsButton])
+        bar.orientation = .horizontal
+        bar.spacing = 8
+        bar.frame = NSRect(x: 0, y: 0, width: bar.fittingSize.width + 24, height: 32)
         accessory.view = bar; accessory.layoutAttribute = .bottom
         window.addTitlebarAccessoryViewController(accessory)
         window.minSize = NSSize(width: 400, height: 320)
@@ -35,15 +46,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let appItem = NSMenuItem(); menu.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
-        for (title, action) in [("Install ARose screen saver…", #selector(MacUpdates.manageSaver)),
+        for (title, action) in [("Screen Saver Settings…", #selector(MacUpdates.openScreenSaverSettings)),
                                  ("Check for Updates…", #selector(MacUpdates.manualCheck)),
                                  ("Check automatically every week", #selector(MacUpdates.toggleWeekly))] {
             let item = appMenu.addItem(withTitle: roseText(title), action: action, keyEquivalent: "")
             item.target = MacUpdates.shared
-        }
-        if !MacUpdates.shared.installed {
-            let installApp = appMenu.addItem(withTitle: roseText("Install ARose…"), action: #selector(MacUpdates.install), keyEquivalent: "")
-            installApp.target = MacUpdates.shared
         }
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: roseText("Quit ARose"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -65,14 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         MacUpdates.shared.check(background: true)
         NSApp.activate(ignoringOtherApps: true)
-        if CommandLine.arguments.contains("--install-saver") { MacUpdates.shared.install() }
-        else if !MacUpdates.shared.installed,
-                FileManager.default.fileExists(atPath: Bundle.main.resourceURL!.appendingPathComponent("ARose.saver").path) {
-            let alert = NSAlert(); alert.messageText = roseText("Install ARose for your user account?")
-            alert.informativeText = roseText("The app and screen saver will be installed without changing your settings. Automatic update checks remain optional.")
-            alert.addButton(withTitle: roseText("Install ARose…")); alert.addButton(withTitle: roseText("Not Now"))
-            if alert.runModal() == .alertFirstButtonReturn { MacUpdates.shared.install() }
-        }
+
     }
     @objc func settings() {
         guard window.attachedSheet == nil else { return }

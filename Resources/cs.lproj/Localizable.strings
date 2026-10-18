@@ -91,3 +91,15 @@
 "Quit and reopen System Settings to refresh the screen saver list." = "Pro obnovení seznamu spořičů ukončete Nastavení systému a znovu je otevřete.";
 
 "Unable to uninstall the screen saver." = "Spořič se nepodařilo odinstalovat.";
+
+"Screen Saver Settings…" = "Nastavení systémového spořiče…";
+
+"Move ARose to Applications, then quit and reopen the app." = "Přesuňte ARose do složky Aplikace, poté aplikaci ukončete a znovu otevřete.";
+
+"Unable to register the screen saver." = "Spořič se nepodařilo zaregistrovat.";
+
+"Use the standalone screen saver on macOS 13." = "V macOS 13 použijte samostatný spořič.";
+
+"Download ARose.saver from GitHub Releases and open it in Finder." = "Stáhněte ARose.saver z GitHub Releases a otevřete jej ve Finderu.";
+
+"Unable to refresh the screen saver." = "Spořič se nepodařilo obnovit.";

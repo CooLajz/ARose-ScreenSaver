@@ -2,6 +2,20 @@
 
 ## Unreleased — public distribution preparation
 
+- Render an initial still image for stopped extension views requested by System
+  Settings, preventing a black thumbnail after Options or app replacement.
+  Keep the actual simulation and saved figure unchanged while generating it.
+- Automatically refresh cached screen saver hosts once after app replacement,
+  including same-build reinstall and Sparkle background relaunch; retry Settings
+  reopening and defer recovery during locked/idle sessions.
+
+- Package ARose.app with a native screen saver extension and a drag-to-Applications
+  DMG. Keep the standalone .saver distribution and share rendering/settings code.
+- Use the system ScreenSaverConfigurationViewController and its completion
+  lifecycle for extension Options; verify repeated picker reopening on macOS 27.0.1.
+- Update the companion menu, registration, packaging and documentation for app
+  installation without copying a legacy saver into the user's Library.
+
 - Cache the macOS Metal CPU overlay per in-flight slot; repaint only when
   displayed text, view size or backing scale changes. Update text once per second.
   Verify cached pixels and invalidation on value and size changes.

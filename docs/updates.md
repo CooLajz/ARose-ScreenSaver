@@ -9,11 +9,24 @@ are fetched from upstream releases with pinned SHA-256 hashes by
 The Windows C++ runtime is statically linked in MSVC builds; all other
 non-updater DLL dependencies are system components of supported Windows.
 
-First installation is a per-user macOS DMG flow or a Windows Inno Setup EXE.
-The Mac app lives at `~/Applications/ARose Preview.app`, with its managed saver
-at `~/Library/Screen Savers/ARose.saver`. Sparkle updates the app including the
-embedded saver; on relaunch its newer bundle build is copied to the managed
-location. This does not touch ScreenSaverDefaults or saved figures. Inno Setup
+First installation uses a drag-to-Applications macOS DMG or a Windows Inno Setup EXE.
+The Mac app is `ARose.app`; its `Contents/PlugIns/ARoseExtension.appex` is the
+system screen saver on macOS 14+. First launch prepares the installed extension. A changed executable/file identity
+or PlugInKit registration triggers one automatic refresh of WallpaperAgent and
+any running System Settings instance. The latter reopens on Wallpaper settings,
+with bounded retries while Launch Services finishes terminating the old instance.
+This repairs both rendering and configuration connections. Unchanged launches
+skip the refresh; temporary DMG/development copies do not touch installed hosts.
+After a manual replacement, open the installed app once. Sparkle relaunches use
+the same preparation path, including background launch arguments. Before
+installation the Sparkle delegate records pending recovery, so a background
+relaunch can wait for an active, unlocked session rather than exiting early.
+App configuration sheets also defer recovery. No persistent repair agent is installed.
+Sparkle updates the whole app, including that extension, in one operation.
+The classic `.saver` is distributed separately and is never installed, replaced
+or removed by the app. Existing classic preferences remain separate from the
+extension's sandbox preferences. Neither format migrates the other's settings.
+Inno Setup
 updates a stable machine-wide installation in Program Files and copies ARose.scr
 to the 64-bit Windows system directory for screen saver discovery. Installation
 and updates require administrator approval. HKLM stores the installation path;
@@ -66,7 +79,7 @@ or private repository is not a public update feed. No feed is currently live.
 Expected release assets (replace 1.0.3 with the intended release version):
 
 - `ARose-ScreenSaver-v1.0.3-macOS-universal.dmg` — initial installation
-- `ARose-ScreenSaver-v1.0.3-macOS-update.zip` — Sparkle payload (companion + saver)
+- `ARose-ScreenSaver-v1.0.3-macOS-update.zip` — Sparkle payload (app + embedded extension)
 - `ARose-ScreenSaver-v1.0.3-macOS-standalone.saver.zip` — standalone bundle
 - `ARose-ScreenSaver-v1.0.3-Windows-x64-Setup.exe` — initial/update installer
 - `ARose-ScreenSaver-v1.0.3-Windows-x64.scr` — standalone saver
@@ -84,8 +97,9 @@ signatures do not replace Gatekeeper notarization or Authenticode.
   resident helper when no update exists, no duplicate helper/UI instances.
 - Private test feed: upgrade build N to N+1 on both platforms, cancel, offline,
   no update, invalid/tampered signature rejection, preserved settings/bookmarks.
-- On Mac, verify both the updated app and the saver after Sparkle relaunch;
-  close/reopen System Settings if it retains the old saver bundle in its host.
+- On Mac, verify the updated app and embedded extension after Sparkle relaunch;
+  also verify the independent classic `.saver`. Test replacement with Settings
+  open, same-build reinstall, unchanged launches and deferred recovery after unlock.
 - Test downloaded signed/notarized artifacts on a clean machine. Successful
   local compilation or signature tests do not establish this runtime acceptance.
 

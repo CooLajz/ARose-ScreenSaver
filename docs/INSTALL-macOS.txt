@@ -1,55 +1,61 @@
-ARose ScreenSaver — macOS 13+, Apple Silicon / Intel
+ARose — macOS / Apple Silicon + Intel
 
 English
-INSTALLER: Open the DMG, then open ARose Preview.app and choose Install ARose.
-The app is copied to ~/Applications/ARose Preview.app and the saver to
-~/Library/Screen Savers/ARose.saver. No administrator password is required.
-Select ARose in System Settings → Screen Saver. Quit and reopen System Settings
-if it was already open. Existing ARose settings and saved figures are preserved.
+INSTALL: Open the DMG and drag ARose onto Applications. Open ARose.app once,
+then choose Screen Saver Settings… in its menu and select ARose in macOS.
+After replacing the app, open the installed copy once. It automatically
+refreshes the screen saver and any open System Settings window.
+The extension is inside the app; no separate .saver installation is needed.
+The app does not need to stay open while the system screen saver runs.
+The embedded extension targets macOS 14+. The app itself supports macOS 13+.
 
-STANDALONE: Extract the standalone .saver.zip and open ARose.saver in Finder.
-It needs no companion app or updater. Install future versions the same way.
+CLASSIC: On macOS 13, or for the independent classic version, extract the
+standalone .saver.zip and open ARose.saver in Finder. No app is required.
+The app preview, extension and classic saver each have separate settings and
+saved figures. Existing classic installations are not modified by the app.
 
-UPDATES: The companion app has a Check for Updates button. After confirmation,
-Sparkle downloads, verifies and installs the update, then the app refreshes its
-managed screen saver on relaunch. Enable weekly checking in the ARose menu if
-wanted; it is off by default. macOS may ask you to allow background activity.
-A short hourly task checks locally whether a week has passed. Network checks
-are deferred during inactivity/locking, do not wake the Mac, and contact only
-the project's GitHub release infrastructure. Failed checks retry next week;
-manual checks remain available. There is no telemetry or account requirement.
+UPDATES: Choose Check for Updates in the installed app. After confirmation,
+Sparkle updates the whole app including its extension. Weekly checking is
+optional and off by default; macOS may request approval for background activity.
+The short hourly task only contacts GitHub when a week has elapsed and the
+session is active and unlocked. It does not wake the Mac. There is no telemetry.
+Update the standalone classic saver manually with a new .saver download.
 
-UNINSTALL: Disable weekly checks in the app first. Remove ARose.saver from your
-user's Library/Screen Savers, and ARose Preview.app from your Applications.
-Preferences are retained. System Settings manages locking and idle timeout.
+UNINSTALL: Disable weekly checks first, select another screen saver, and move
+ARose.app to the Trash. If separately installed, remove ARose.saver from
+Library/Screen Savers as well. Preferences are retained.
 
-Development candidates are ad-hoc signed and not notarized. Public distribution
-requires Developer ID signing and notarization; do not disable Gatekeeper.
-Intel compatibility is built, but hardware acceptance has been on Apple M2.
+Development candidates are ad-hoc signed, not notarized. Public distribution
+requires Developer ID signing and notarization. The extension uses private
+macOS APIs. Runtime validation is on Apple M2 / macOS 27.0.1; older macOS and
+Intel hardware acceptance remain pending. Do not disable Gatekeeper.
 
 Česky
-INSTALÁTOR: Otevřete DMG a aplikaci ARose Preview.app, poté zvolte Nainstalovat
-ARose. Aplikace se uloží do ~/Applications/ARose Preview.app a spořič do
-~/Library/Screen Savers/ARose.saver. Heslo správce není potřeba. Vyberte ARose
-v Nastavení systému → Spořič obrazovky. Pokud bylo Nastavení systému otevřené,
-ukončete je a znovu otevřete. Nastavení ARose i uložené obrazce zůstanou zachovány.
+INSTALACE: Otevřete DMG a přetáhněte ARose na ikonu Applications (Aplikace).
+Aplikaci ARose.app jednou spusťte. V nabídce zvolte Nastavení systémového
+spořiče… a v macOS vyberte ARose. Po výměně aplikace jednou spusťte
+nainstalovanou kopii; automaticky obnoví spořič i případné otevřené Nastavení
+systému. Rozšíření spořiče je součástí aplikace;
+samostatný .saver se neinstaluje. Aplikace nemusí při běhu spořiče zůstat otevřená.
+Vložené rozšíření má cíl macOS 14+, samotná aplikace macOS 13+.
 
-SAMOSTATNÝ SPOŘIČ: Rozbalte .saver.zip a otevřete ARose.saver ve Finderu.
-Doprovodná aplikace není nutná. Nové verze nainstalujete stejným způsobem ručně.
+KLASICKÝ SPOŘIČ: Pro macOS 13 nebo nezávislou klasickou variantu rozbalte
+samostatný .saver.zip a otevřete ARose.saver ve Finderu. Aplikace není nutná.
+Náhled v aplikaci, rozšíření i klasický spořič mají oddělená nastavení a uložené
+obrazce. Aplikace stávající klasický spořič nenahrazuje ani neodstraňuje.
 
-AKTUALIZACE: Doprovodná aplikace má tlačítko Zkontrolovat aktualizace. Po potvrzení
-Sparkle novou verzi stáhne, ověří a nainstaluje. Při opětovném spuštění aplikace
-obnoví také jí spravovaný spořič. V nabídce ARose lze povolit týdenní kontrolu;
-výchozí stav je vypnuto. macOS může vyžadovat povolení činnosti na pozadí.
-Krátká hodinová úloha místně ověří, zda uplynul týden. Síťová kontrola se odkládá
-při nečinnosti nebo zamčení, neprobouzí Mac a komunikuje pouze s infrastrukturou
-GitHub Releases projektu. Neúspěšná kontrola se zopakuje za týden; ruční je
-k dispozici kdykoli. Aplikace nevyžaduje účet a neodesílá telemetrii.
+AKTUALIZACE: V nainstalované aplikaci zvolte Zkontrolovat aktualizace. Po
+potvrzení Sparkle aktualizuje celou aplikaci včetně rozšíření. Volitelná týdenní
+kontrola je zpočátku vypnutá; macOS může požádat o povolení činnosti na pozadí.
+Krátká hodinová úloha komunikuje s GitHubem až po uplynutí týdne a jen při
+aktivním odemčeném sezení. Mac neprobouzí a neodesílá telemetrii.
+Samostatný klasický spořič aktualizujte ručně novým souborem .saver.
 
-ODINSTALACE: Nejprve vypněte týdenní kontrolu v aplikaci. Odstraňte ARose.saver
-z uživatelské složky Library/Screen Savers a ARose Preview.app z Applications.
-Preference zůstanou zachovány. Zamykání i dobu nečinnosti spravuje systém.
+ODINSTALACE: Nejprve vypněte týdenní kontrolu, vyberte jiný spořič a přesuňte
+ARose.app do Koše. Samostatně nainstalovaný ARose.saver případně odstraňte ze
+složky Library/Screen Savers. Preference zůstanou zachovány.
 
-Vývojové balíčky jsou podepsané místně, bez notarizace. Veřejné vydání vyžaduje
-podpis Developer ID a notarizaci; nevypínejte Gatekeeper. Intel je podporovaný
-sestavením, fyzické ověřování probíhalo na Apple M2.
+Vývojové balíčky mají místní ad-hoc podpis bez notarizace. Veřejná distribuce
+vyžaduje Developer ID a notarizaci. Rozšíření používá neveřejná rozhraní macOS.
+Provozní ověření proběhlo na Apple M2 / macOS 27.0.1; ověření starších systémů
+a hardwaru Intel zatím chybí. Nevypínejte Gatekeeper.

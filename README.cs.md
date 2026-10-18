@@ -2,9 +2,9 @@
 
 [English](README.md) | **Česky**
 
-Nativní rekonstrukce modulu ARose pro BlitzBlank na Amize. Obsahuje systémový spořič `.saver` a samostatný náhled. Oba používají stejný vykreslovací kód ve Swiftu a AppKitu. Windows port používá C++ a Direct2D. Projekt funguje bez emulátoru a bez síťové komunikace.
+Nativní rekonstrukce modulu ARose pro BlitzBlank na Amize. Obsahuje aplikaci `ARose.app` s vloženým rozšířením spořiče `.appex` a samostatný klasický `.saver`. Všechny varianty sdílejí vykreslovací kód i rozhraní nastavení ve Swiftu a AppKitu. Windows port používá C++ a Direct2D. Projekt funguje bez emulátoru a bez síťové komunikace.
 
-Cíl sestavení je macOS 13 a novější. Výstupy jsou univerzální pro Apple Silicon i Intel; ruční ověření proběhlo na Macu M2. Intel ani všechny starší verze macOS zatím nebyly otestovány.
+Aplikace a klasický `.saver` mají cíl sestavení macOS 13+, vložené rozšíření `.appex` macOS 14+. Rozšíření používá neveřejné rozhraní ScreenSaver. Výstupy jsou univerzální pro Apple Silicon i Intel; ruční ověření proběhlo na Macu M2. Intel ani všechny starší verze macOS zatím nebyly otestovány.
 
 Projekt se připravuje k prvnímu veřejnému vydání. Windows x64 port má ověřené nativní sestavení a základní testy; úplné provozní ověření ještě zbývá. Obsahuje systémový `.scr`, vlastní nastavení a náhled. Pokyny uvádí [instalační příručka](Windows/INSTALL.txt). Nový kód používá licenci MIT v rozsahu popsaném v [licenčním upozornění](THIRD_PARTY_NOTICES.md); původní řídicí tabulky pod MIT nepřelicencováváme. Před zveřejněním je potřeba vyjasnit oprávnění k odvozeným částem.
 
@@ -12,9 +12,10 @@ Postup balení a podmínky veřejného vydání uvádí [průvodce vydáváním]
 
 ## Spuštění a instalace
 
-- Otevřete `dist/ARose Preview.app` pro samostatný náhled.
-- Pro instalaci rozbalte `dist/ARose.saver.zip` například ve složce Stažené soubory, otevřete rozbalený `ARose.saver` ve Finderu a dokončete instalaci nabízenou macOS. Potom vyberte ARose v nastavení spořiče obrazovky.
-- Pokud macOS instalaci dvojklikem nenabídne, zkopírujte `ARose.saver` do složky `~/Library/Screen Savers/` (případně ji vytvořte) a znovu otevřete nastavení spořičů.
+- Otevřete DMG ze složky `dist/releases/` a přetáhněte **ARose** na **Applications (Aplikace)**.
+- Aplikaci `/Applications/ARose.app` jednou spusťte. V její nabídce otevřete **Nastavení systémového spořiče…** a v macOS vyberte ARose. Po výměně aplikace jednou spusťte nainstalovanou kopii. Automaticky obnoví hostitele spořiče a případné otevřené Nastavení systému.
+- Rozšíření zůstává uvnitř aplikace; žádný `.saver` se nekopíruje do Knihovny. Aplikace nemusí při běhu systémového spořiče zůstat otevřená.
+- Na macOS 13 nebo při požadavku na klasický formát rozbalte `dist/ARose.saver.zip` a otevřete `ARose.saver` ve Finderu. Oba formáty mají oddělená nastavení; není nutné instalovat oba.
 - Nastavení nabízí dvě podoby: **Originální Amiga** a **Moderní**, pět rychlostí a šest délek stopy. Originální režim má černobílou, ECS nebo AGA paletu; moderní režim vždy používá plynulou RGB duhu. Změny se projeví při novém spuštění spořiče; náhled se po uložení restartuje okamžitě.
 
 Pro přenos používejte ZIP archivy v `dist/`. Některé spravované složky Dokumentů dodatečně připojují metadata Finderu, která mohou zneplatnit podpis volně uloženého balíčku; ZIP tento problém při přenosu nemá. Test kontroluje podpis i načtení spořiče po rozbalení ZIPu mimo složku projektu.
@@ -40,12 +41,13 @@ Je potřeba Xcode s macOS SDK. Otevřete `ARose.xcodeproj`, případně použijt
 
 ```sh
 ./script/build_and_run.sh          # sestavení a spuštění náhledu
-./script/build_and_run.sh --build  # pouze vytvoření obou balíčků v dist/
+./script/build_and_run.sh --build  # aplikace s rozšířením a samostatný .saver
 ./script/build_and_run.sh --verify # sestavení, spuštění a ověření procesu
 ./script/test.sh                  # testy po sestavení
+./script/package_macos_installer.sh # DMG s přetažením do Aplikací
 ```
 
-Skript vytváří univerzální balíčky, odstraní nepřípustná metadata Finderu pouze z výstupů v `dist/` a podepíše je pro lokální použití. Log sestavení je v `.build/build.log`. Xcode schéma `ARose` sestaví oba cíle a spouští náhled.
+Skript vytváří univerzální balíčky, odstraní nepřípustná metadata Finderu pouze z výstupů v `dist/` a podepíše je pro lokální použití. Log sestavení je v `.build/build.log`. Xcode schéma `ARose` sestaví aplikaci, její rozšíření a klasický spořič a spouští náhled.
 
 ## Dvě podoby
 
@@ -63,13 +65,9 @@ Při přepnutí podoby se animace spustí od začátku. Volba původní palety z
 
 Aplikace a systémový spořič mají samostatná nastavení i uložené figury na macOS i Windows. Nastavení aplikace slouží k nezávislému zkoušení obrazců; systémový spořič se nastavuje tlačítkem Volby v macOS nebo Nastavení ve Windows. Změny se mezi nimi nepřenášejí.
 
-Při lokálním ověření na macOS 27.0.1 byl zachycen přerušovaný pád systémového procesu `legacyScreenSaver`: při požadavku `presentConfiguration` přistoupil k první položce prázdného pole `viewControllers`, ještě před předáním požadavku konfiguračnímu oknu modulu. Náhled proto může zmizet nebo se po obnovení hostitele znovu rozběhnout. Pokud Volby nereagují, zavřete výběr spořičů tlačítkem Hotovo, ukončete Nastavení systému a znovu je otevřete. Tento postup není zárukou odstranění systémové chyby.
+Klasický `.saver` může nadále trpět problémem se zobrazením voleb po zavření a znovuotevření celého výběru spořičů. Nové rozšíření `.appex` používá vlastní proces a systémový konfigurační řadič, takže tento způsob zobrazování přes `legacyScreenSaver` obchází. Na macOS 27.0.1 bylo ověřeno opakované zavření a otevření celého výběru, otevření voleb a Uložit/Zrušit bez restartu Nastavení systému. Zobrazuje se i vlastní dlaždice ARose.
 
-Verze 1.0.1 uchovává konfigurační okno pro opakované použití, podporuje zavření i mimo připojený panel a zaznamenává požadavek na otevření, uložení a zrušení do systémového logu pod subsystémem `cz.coolajz.ARose`, kategorií `Configuration`. Po aktualizaci byla přímo v Nastavení systému ověřena tři otevření, zrušení a uložení. Dlouhodobé odstranění přerušované chyby hostitele tím není potvrzeno.
-
-Při opakovaném ověření 17. října 2026 se chyba projevila po zavření a znovuotevření celého výběru spořičů. ARose obdržel druhý požadavek a vrátil nový obsah o velikosti 460 × 450, dialog se však neobjevil. Explicitní velikost řadiče ani alternativní ukončení modální relace nepomohly a tyto pokusné změny byly vráceny. Vestavěný spořič Zpráva stejným postupem prošel; tím není určeno, zda zbývající problém leží v integraci ARose, nebo v hostiteli starších spořičů. Automatický test životního cyklu dialogu toto zobrazení mezi procesy neověřuje.
-
-Balíček obsahuje náhledy `thumbnail.png` a `thumbnail@2x.png`; Xcode je ponechává ve formátu PNG. Na lokálním macOS 27.0.1 však systémový seznam i po obnovení služby stále zobrazuje výchozí dlaždici. Tato kosmetická chyba zůstává nevyřešená; animovaný náhled funguje.
+Neveřejné rozhraní se může v budoucnu změnit. Provozní ověření macOS 14–26 a hardwaru Intel zatím chybí. Podrobnosti obsahuje [popis rozšíření a ověření](docs/macos-extension.md).
 
 ## Věrnost originálu
 

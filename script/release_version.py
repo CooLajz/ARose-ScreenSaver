@@ -11,10 +11,11 @@ parser.add_argument('--format', choices=['version','build','header'], default='v
 args = parser.parse_args()
 with (root/'Resources/Saver-Info.plist').open('rb') as f: saver=plistlib.load(f)
 with (root/'Resources/Preview-Info.plist').open('rb') as f: app=plistlib.load(f)
+with (root/'Resources/Extension-Info.plist').open('rb') as f: extension=plistlib.load(f)
 version, build = saver['CFBundleShortVersionString'], saver['CFBundleVersion']
 if not re.fullmatch(r'\d+\.\d+\.\d+',version) or not re.fullmatch(r'[1-9]\d*',build):
     raise SystemExit('Invalid version/build')
-if app['CFBundleShortVersionString'] != version or app['CFBundleVersion'] != build:
+if any(info['CFBundleShortVersionString'] != version or info['CFBundleVersion'] != build for info in [app, extension]):
     raise SystemExit('Saver and companion versions differ')
 rc=(root/'Windows/ARose.rc').read_text()
 expected=version.replace('.',',')+','+build

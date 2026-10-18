@@ -22,3 +22,39 @@ included with the distributed binaries (including bundled dependency notices).
 They are not linked into the standalone screen savers.
 Sources: https://github.com/sparkle-project/Sparkle and
 https://github.com/vslavik/winsparkle .
+
+## Screen saver extension reference
+
+The private ScreenSaver declarations and extension integration were informed by
+[AppexSaverMinimal](https://github.com/AerialScreensaver/AppexSaverMinimal),
+with runtime corrections for the configuration controller and lifecycle.
+Its MIT notice follows:
+
+MIT License
+
+Copyright (c) 2026 Guillaume Louel
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## DMG build tools
+
+Packaging uses `ds-store` 1.3.1 and `mac-alias` 2.2.2 (Alastair Houghton, MIT),
+installed into a local build virtual environment. They are build dependencies,
+not bundled application runtime libraries.
+Sources: https://github.com/al45tair/ds_store and https://github.com/al45tair/mac_alias .

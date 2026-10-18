@@ -153,6 +153,11 @@ final class ARoseView: ScreenSaverView {
     private var figureResetGeneration = 0.0
     private var lastFigureActivity: TimeInterval = 0
     var paused = false
+    // Extension hosts can request a stopped view for the Settings thumbnail.
+    // Keep its poster independent of the real simulation and saved figure.
+    var showsIdlePreview = false
+    private var idlePreviewImage: CGImage?
+    private var idlePreviewSize = NSSize.zero
 
     override convenience init?(frame: NSRect, isPreview: Bool) {
         self.init(frame: frame, isPreview: isPreview,
@@ -179,6 +184,7 @@ final class ARoseView: ScreenSaverView {
         ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset", "scaleRetro"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
+        idlePreviewImage = nil
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
         defaults.synchronize()
         if configuration() != loadedConfiguration { reset() }
@@ -253,6 +259,7 @@ final class ARoseView: ScreenSaverView {
         if let state { engine.restoreFigure(state) }
     }
     func reset() {
+        idlePreviewImage = nil
         loadedConfiguration = configuration()
         figureResetGeneration = defaults.double(forKey: "figureReset")
         lastFigureSave = 0
@@ -392,12 +399,47 @@ final class ARoseView: ScreenSaverView {
         metalRenderer?.surface.isHidden = true
         NSColor.black.setFill(); bounds.fill()
         guard let context = NSGraphicsContext.current?.cgContext else { return }
+        if showsIdlePreview && !animationActive && engine.frame == 0 {
+            if idlePreviewImage == nil || idlePreviewSize != bounds.size {
+                idlePreviewImage = makeIdlePreviewImage()
+                idlePreviewSize = bounds.size
+            }
+            if let image = idlePreviewImage {
+                context.interpolationQuality = .high
+                context.draw(image, in: bounds)
+            }
+            return
+        }
         defer { if debugCPU { drawCPU(in: context) } }
         if engine.modern { drawModern(in: context); return }
         guard let image = frameImage() else { return }
         context.interpolationQuality = .none
         context.setShouldAntialias(false)
         context.draw(image, in: bounds)
+    }
+    private func makeIdlePreviewImage() -> CGImage? {
+        guard bounds.width > 0, bounds.height > 0 else { return nil }
+        // The system displays this as a small still image. A bounded raster
+        // avoids allocating another full-screen backing store in the service.
+        let scale = min(1, 640 / max(bounds.width, bounds.height))
+        let width = max(1, Int((bounds.width * scale).rounded()))
+        let height = max(1, Int((bounds.height * scale).rounded()))
+        let frame = NSRect(x: 0, y: 0, width: width, height: height)
+        guard let poster = ARoseView(frame: frame, isPreview: true, settings: defaults),
+              let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+              let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+        // Use the shared renderer and current appearance/palette/glow settings.
+        // This detached preview never starts a figure session or saves defaults.
+        let state = defaults.array(forKey: figureStorageKey) as? [Int]
+        let restored = defaults.bool(forKey: "resumeFigure") && state.map { poster.engine.restoreFigure($0) } == true
+        for _ in 0..<(restored ? poster.engine.tail : 600) { poster.engine.step() }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        poster.draw(frame)
+        NSGraphicsContext.restoreGraphicsState()
+        return bitmap.cgImage
     }
     private func updateCPUText() {
         let now = ProcessInfo.processInfo.systemUptime
@@ -536,7 +578,15 @@ final class ARoseView: ScreenSaverView {
 }
 
 final class RoseOptions: NSObject {
-    let window: NSWindow
+    let contentViewController = NSViewController()
+    var dismissHandler: (() -> Void)?
+    lazy var window: NSWindow = {
+        let window = NSWindow(contentViewController: contentViewController)
+        window.styleMask = [.titled]
+        window.isReleasedWhenClosed = false
+        window.title = roseText("ARose Settings")
+        return window
+    }()
     private let defaults: UserDefaults
     private let apply: () -> Void
     private let speed = NSPopUpButton(), tail = NSPopUpButton(), palette = NSPopUpButton()
@@ -554,15 +604,10 @@ final class RoseOptions: NSObject {
 
     init(defaults: UserDefaults, apply: @escaping () -> Void) {
         self.defaults = defaults; self.apply = apply
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 680),
-                          styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
-        // Retain the window for this presentation; subsequent requests get fresh content.
-        window.isReleasedWhenClosed = false
-        let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 680))
-        window.contentViewController = content
-        window.title = roseText("ARose Settings")
+        // The same controls can be hosted by a local window, legacy sheet or appex.
+        contentViewController.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 680))
+        contentViewController.preferredContentSize = NSSize(width: 460, height: 680)
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
         tail.addItems(withTitles: [roseText("No trail"), roseText("Short"), roseText("Medium short"), roseText("Medium"), roseText("Long"), roseText("Longest")])
         appearance.addItems(withTitles: [roseText("Original Amiga"), roseText("Modern")])
@@ -604,10 +649,10 @@ final class RoseOptions: NSObject {
         save.keyEquivalent = "\r"; cancel.keyEquivalent = "\u{1b}"
         stack.addArrangedSubview(NSStackView(views: [cancel, save]))
         stack.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView!.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24)])
+        contentViewController.view.addSubview(stack)
+        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: contentViewController.view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: contentViewController.view.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: contentViewController.view.topAnchor, constant: 24)])
     }
     func reload() {
         forgetPending = false
@@ -626,15 +671,25 @@ final class RoseOptions: NSObject {
         updatePalette()
     }
     @objc private func openUpdates() {
-        // The system saver runs in a container: its home directory is not the
-        // user's home. Resolve the companion through Launch Services instead.
-        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "cz.coolajz.ARose.Preview") else {
+        // Prefer the enclosing app for an extension, even when an older
+        // companion with the same bundle identifier is still installed.
+        let resourceBundle = Bundle(for: ARoseView.self).bundleURL
+        let enclosingApp = resourceBundle.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let appURL = resourceBundle.pathExtension == "appex" && enclosingApp.pathExtension == "app"
+            ? enclosingApp : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "cz.coolajz.ARose.Preview")
+        guard let app = appURL else {
             let alert = NSAlert()
             alert.messageText = roseText("Install the companion app to manage updates.")
             alert.informativeText = roseText("The standalone screen saver works without the companion app.")
-            alert.addButton(withTitle: roseText("OK")); alert.beginSheetModal(for: window)
+            alert.addButton(withTitle: roseText("OK"))
+            if let parent = contentViewController.view.window { alert.beginSheetModal(for: parent) }
             return
         }
+        // First launch of a newly installed host app can make Launch Services
+        // re-register its extension even if our app never calls pluginkit -a.
+        // Complete the remote sheet before that can invalidate its connection.
+        // This is a navigation action, not Save: pending edits stay uncommitted.
+        dismissHandler?()
         NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
             guard let error else { return }
             DispatchQueue.main.async {
@@ -643,7 +698,7 @@ final class RoseOptions: NSObject {
                 alert.messageText = roseText("Unable to open the companion app.")
                 alert.informativeText = error.localizedDescription
                 alert.addButton(withTitle: roseText("OK"))
-                alert.beginSheetModal(for: self.window)
+                if let parent = self.contentViewController.view.window { alert.beginSheetModal(for: parent) }
             }
         }
     }
@@ -665,6 +720,7 @@ final class RoseOptions: NSObject {
         glowValue.textColor = modern ? .labelColor : .disabledControlTextColor
     }
     private func dismiss() {
+        if let dismissHandler { dismissHandler(); return }
         configurationLog.notice("Dismissing configuration: visible=\(self.window.isVisible), parent=\(self.window.sheetParent != nil)")
         if let parent = window.sheetParent {
             parent.endSheet(window)

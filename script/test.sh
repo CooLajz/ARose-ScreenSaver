@@ -8,6 +8,11 @@ xcrun swiftc -O -module-cache-path .build/ModuleCache -framework ScreenSaver Sou
 .build/settings-tests
 xcrun swiftc -O -module-cache-path .build/ModuleCache -framework ScreenSaver Sources/Core/*.swift Sources/ScreenSaver/*.swift Tests/RetroRendering/main.swift -o .build/retro-render-tests
 .build/retro-render-tests
+xcrun swiftc -O -module-cache-path .build/ModuleCache -framework ScreenSaver \
+    -import-objc-header Sources/Extension/ScreenSaverPrivate.h \
+    Sources/Core/*.swift Sources/ScreenSaver/*.swift Sources/Extension/ARoseExtension.swift \
+    Tests/Extension/main.swift -o .build/extension-tests
+.build/extension-tests
 xcrun clang -fobjc-arc -framework Cocoa -framework ScreenSaver Tests/BundleSmoke.m -o .build/bundle-smoke
 TEST_BUNDLE_DIR="$(mktemp -d /private/tmp/arose-bundle-test.XXXXXX)"
 trap 'rm -rf "$TEST_BUNDLE_DIR"' EXIT
