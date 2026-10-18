@@ -14,6 +14,12 @@ jobs:
           persist-credentials: false
       - name: Build universal saver and preview
         run: ./script/build_and_run.sh --build
+      - name: Preserve macOS build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-build-log
+          path: .build/build.log
       - name: Test macOS bundles and localization
         run: ./script/test.sh
       - name: Compare Windows and Swift engines
@@ -43,7 +49,17 @@ jobs:
       - name: Build native saver
         run: cmake --build build-windows --config Release
       - name: Test engine and short windowed launch
-        run: ctest --test-dir build-windows -C Release --output-on-failure
+        run: ctest --test-dir build-windows -C Release --output-on-failure -E '^rendering-gpu$'
+      - name: Compare GPU rendering with reference
+        id: gpu
+        continue-on-error: true
+        run: ctest --test-dir build-windows -C Release --output-on-failure -R '^rendering-gpu$'
+      - name: Record GPU result for testers
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/releases | Out-Null
+          "GPU reference comparison: ${{ steps.gpu.outcome }}. See workflow logs for measured differences." | Set-Content dist/releases/GPU-TEST-RESULT.txt
       - name: Compare Windows engine with Swift reference
         run: python script/check_engine_parity.py --executable build-windows/Release/arose-engine-tests.exe
       - name: Install installer build tool
@@ -56,3 +72,7 @@ jobs:
           path: dist/releases/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Keep GPU regression visible
+        if: steps.gpu.outcome == 'failure'
+        run: throw "GPU reference comparison failed. Test artifacts were uploaded; inspect GPU-TEST-RESULT.txt and the logs before release."

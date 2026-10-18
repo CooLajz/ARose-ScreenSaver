@@ -9,6 +9,7 @@ mkdir -p .build dist
 python3 script/fetch_updaters.py macos
 xcodebuild -project ARose.xcodeproj -scheme ARose -configuration Release \
     -derivedDataPath "$ROOT_DIR/.build" -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build > .build/build.log 2>&1 || {
+    rg -n -C 3 "error:" .build/build.log || true
     tail -80 .build/build.log; exit 1;
 }
 # File Provider may later reattach FinderInfo inside Documents. Keep clean ZIPs
