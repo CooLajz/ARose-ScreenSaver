@@ -52,12 +52,25 @@ if ($LASTEXITCODE -ne 0) { throw 'Release build metadata mismatch.' }
 $info = $installer.VersionInfo
 $installerVersion = '{0}.{1}.{2}.{3}' -f $info.FileMajorPart,$info.FileMinorPart,$info.FileBuildPart,$info.FilePrivatePart
 if ($installerVersion -ne "$releaseVersion.$releaseBuild") { throw 'Installer fixed version does not match the packaged release build.' }
-$install = Start-Process $installer.FullName -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+$app = Join-Path $env:ProgramFiles 'ARose ScreenSaver CI Custom'
+$installArguments = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR="' + $app + '"'
+$install = Start-Process $installer.FullName -ArgumentList $installArguments -Wait -PassThru
 if ($install.ExitCode -ne 0) { throw "Installer failed: $($install.ExitCode)" }
-$app = Join-Path $env:ProgramFiles 'ARose ScreenSaver'
 $systemSaver = Join-Path $env:WINDIR 'System32/ARose.scr'
+$fixtureFolder = Join-Path $env:TEMP ('ARose-uninstall-' + [guid]::NewGuid())
+$fixtureKey = "HKCU:\Software\ARoseUninstallFixture-$PID"
+$loadedTestUsers = @()
+$desktopKey = 'HKCU:\Control Panel\Desktop'
+$oldSelection = (Get-ItemProperty $desktopKey -Name 'SCRNSAVE.EXE' -ErrorAction SilentlyContinue).'SCRNSAVE.EXE'
 try {
     if ((Get-ItemProperty 'HKLM:\Software\CooLajz\ARose').InstallPath -ne $app) { throw 'Wrong installation marker.' }
+    # An updater invokes the installer without /DIR; preserve the custom path.
+    $upgrade = Start-Process $installer.FullName -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+    if ($upgrade.ExitCode -ne 0) { throw "Upgrade failed: $($upgrade.ExitCode)" }
+    if ((Get-ItemProperty 'HKLM:\Software\CooLajz\ARose').InstallPath -ne $app -or
+        -not (Test-Path "$app/ARose Control.exe")) { throw 'Upgrade changed the previous installation directory.' }
+    if (Test-Path (Join-Path $env:ProgramFiles 'ARose ScreenSaver/ARose Control.exe')) { throw 'Upgrade created a second default installation.' }
+    Write-Output 'PASS: silent upgrade preserves the custom installation directory.'
     if ((Get-FileHash $systemSaver).Hash -ne (Get-FileHash "$app/ARose.scr").Hash) { throw 'System saver copy differs.' }
     $control = Start-Process "$app/ARose Control.exe" -PassThru
     $window = Wait-Window $control
@@ -118,10 +131,50 @@ try {
     [void][SaverUI]::PostMessage($window,0x10,0,0)
     if (-not $control.WaitForExit(10000)) { throw 'Companion did not close.' }
     Write-Output 'PASS: machine installation, system saver copy, centered companion, settings and windowed preview.'
+    # Use disposable loaded hives to simulate a different logged-in user. Never
+    # load real offline profiles or change another existing user's preferences.
+    New-Item "$fixtureKey\Control Panel\Desktop" -Force | Out-Null
+    New-ItemProperty "$fixtureKey\Control Panel\Desktop" -Name Wallpaper -Value 'fixture-preserved' -PropertyType String -Force | Out-Null
+    New-Item $fixtureFolder -ItemType Directory | Out-Null
+    $baseHive = Join-Path $fixtureFolder 'base.hiv'
+    & reg.exe save "HKCU\Software\ARoseUninstallFixture-$PID" $baseHive /y
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot save the disposable user hive.' }
+    $testUsers = @("S-1-5-21-4294967200-4294967201-4294967202-$PID", "S-1-12-1-4294967200-4294967201-4294967202-$PID")
+    foreach ($sid in $testUsers) {
+        if (Test-Path "Registry::HKEY_USERS\$sid") { throw 'Disposable test SID already exists.' }
+        $hiveFile = Join-Path $fixtureFolder "$sid.hiv"
+        Copy-Item $baseHive $hiveFile
+        & reg.exe load "HKU\$sid" $hiveFile
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot load the disposable user hive.' }
+        $loadedTestUsers += $sid
+    }
+    New-ItemProperty $desktopKey -Name 'SCRNSAVE.EXE' -Value ('"' + "$app\ARose.scr" + '"') -PropertyType String -Force | Out-Null
+    New-ItemProperty "Registry::HKEY_USERS\$($testUsers[0])\Control Panel\Desktop" -Name 'SCRNSAVE.EXE' -Value $systemSaver -PropertyType String -Force | Out-Null
+    New-ItemProperty "Registry::HKEY_USERS\$($testUsers[1])\Control Panel\Desktop" -Name 'SCRNSAVE.EXE' -Value 'C:\Other\Unrelated.scr' -PropertyType String -Force | Out-Null
 } finally {
-    Get-Process | Where-Object { $_.Path -in @("$app/ARose.scr".Replace('/','\'), "$app/ARose Control.exe".Replace('/','\')) } | Stop-Process -Force
-    $uninstall = Start-Process "$app/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
-    if ($uninstall.ExitCode -ne 0) { throw "Uninstall failed: $($uninstall.ExitCode)" }
+    try {
+        Get-Process | Where-Object { $_.Path -in @("$app/ARose.scr".Replace('/','\'), "$app/ARose Control.exe".Replace('/','\')) } | Stop-Process -Force
+        $uninstall = Start-Process "$app/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+        if ($uninstall.ExitCode -ne 0) { throw "Uninstall failed: $($uninstall.ExitCode)" }
+        if ($loadedTestUsers.Count -eq 2) {
+            if ((Get-ItemProperty $desktopKey -Name 'SCRNSAVE.EXE' -ErrorAction SilentlyContinue) -or
+                (Get-ItemProperty "Registry::HKEY_USERS\$($testUsers[0])\Control Panel\Desktop" -Name 'SCRNSAVE.EXE' -ErrorAction SilentlyContinue)) { throw 'Uninstall left ARose selected in a loaded user profile.' }
+            $other = Get-ItemProperty "Registry::HKEY_USERS\$($testUsers[1])\Control Panel\Desktop"
+            if ($other.'SCRNSAVE.EXE' -ne 'C:\Other\Unrelated.scr' -or $other.Wallpaper -ne 'fixture-preserved') { throw 'Uninstall changed unrelated user settings.' }
+            if ((Get-ItemProperty "Registry::HKEY_USERS\$($testUsers[0])\Control Panel\Desktop").Wallpaper -ne 'fixture-preserved') { throw 'Uninstall changed the other user wallpaper.' }
+            Write-Output 'PASS: uninstall clears only matching ARose selections across loaded user profiles.'
+        }
+    } finally {
+        foreach ($sid in $loadedTestUsers) {
+            & reg.exe unload "HKU\$sid"
+            if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not unload a disposable test hive.' }
+        }
+        if ($null -ne $oldSelection) {
+            New-ItemProperty $desktopKey -Name 'SCRNSAVE.EXE' -Value $oldSelection -PropertyType String -Force | Out-Null
+        } else { Remove-ItemProperty $desktopKey -Name 'SCRNSAVE.EXE' -ErrorAction SilentlyContinue }
+        Remove-Item $fixtureKey -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item $fixtureFolder -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 if ((Test-Path $systemSaver) -or (Get-ItemProperty 'HKLM:\Software\CooLajz\ARose' -Name InstallPath -ErrorAction SilentlyContinue)) { throw 'Uninstall left system registration behind.' }
 Write-Output 'PASS: machine uninstall removed the saver and installation marker.'

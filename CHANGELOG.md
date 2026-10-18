@@ -2,6 +2,12 @@
 
 ## Unreleased — public distribution preparation
 
+- Restart reused macOS full-screen views when figure continuation is off; restore
+  bookmarks when enabled without resetting active starts or thumbnail playback.
+- Preserve custom Windows installation paths during silent updates. Clear only
+  matching ARose selections in loaded user profiles during administrative uninstall,
+  including when elevation uses another account; leave offline profiles untouched.
+
 - Prevent the stopped-thumbnail poster from appearing during macOS full-screen
   startup. Wait for real geometry before the first Metal submission and preserve
   animation timing across repeated host start requests.

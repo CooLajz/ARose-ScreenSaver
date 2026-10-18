@@ -6,6 +6,7 @@ saver to the Windows system directory and creates Start menu shortcuts and an
 uninstaller. Updates also require administrator approval. ARose opens the companion controls; ARose Preview opens an
 interactive animation window. Select ARose in Windows Screen Saver Settings.
 Updates preserve settings, saved figures and your existing saver selection.
+Updates also keep the installation directory you selected.
 
 STANDALONE: Save ARose.scr in a permanent folder, right-click → Install.
 It requires no companion, .NET, Visual C++ Redistributable or updater framework.
@@ -22,6 +23,9 @@ manual checks remain available. No telemetry or account is required.
 
 Settings are in HKCU\Software\CooLajz\ARose. The installer uninstaller removes
 the weekly task and installed files, but retains preferences and saved figures.
+It clears ARose selections in currently loaded user profiles, even when another
+administrator approves uninstall. Offline profiles are not edited: those users
+should select another saver before the shared installation is removed.
 For a standalone copy, select another saver or None, then delete the file.
 Windows continues to manage locking, passwords and idle timeout.
 
@@ -37,6 +41,7 @@ Aktualizace také vyžadují potvrzení správce.
 ARose otevře ovládací aplikaci, ARose Preview interaktivní animaci v okně.
 Vyberte ARose v nastavení spořiče Windows. Aktualizace ponechají nastavení,
 uložené obrazce i dosavadní výběr spořiče.
+Aktualizace zachovají také Vámi zvolenou instalační složku.
 
 SAMOSTATNÝ SPOŘIČ: Uložte ARose.scr do trvalé složky, pravým tlačítkem zvolte
 Nainstalovat. Není potřeba doprovodná aplikace, .NET, Visual C++ Redistributable
@@ -52,7 +57,10 @@ Počítač neprobouzí. Po chybě zkusí další týden, ruční kontrola funguj
 Neodesílá se telemetrie, není potřeba účet.
 
 Preference jsou v HKCU\Software\CooLajz\ARose. Odinstalace odstraní týdenní úlohu
-a nainstalované soubory, preference a obrazce ponechá. U samostatné kopie nejprve
+a nainstalované soubory, preference a obrazce ponechá. Výběr ARose odstraní
+v právě načtených uživatelských profilech, i když odinstalaci potvrdí jiný správce.
+Nenačtené profily nemění; jejich uživatelé by před odinstalací měli vybrat jiný
+spořič. U samostatné kopie nejprve
 vyberte jiný spořič nebo Žádný, poté soubor smažte. Zamykání, hesla a dobu
 nečinnosti nadále spravují Windows.
 

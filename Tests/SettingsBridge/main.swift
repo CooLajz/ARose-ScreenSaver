@@ -92,6 +92,54 @@ do {
 }
 print("OK: saver lifecycle restores bookmarks; thumbnails, other monitors and standalone preview do not overwrite them.")
 
+// Reused full-screen views are new sessions after stop, but duplicate active
+// starts and temporary thumbnail stops must retain their current presentation.
+for appearance in [0, 1] {
+    for resume in [false, true] {
+        let name = "cz.coolajz.ARose.reused-session.\(UUID().uuidString)"
+        let prefs = UserDefaults(suiteName: name)!
+        defer { prefs.removePersistentDomain(forName: name) }
+        prefs.set(appearance, forKey: "appearance")
+        prefs.set(resume, forKey: "resumeFigure")
+        let view = ARoseView(frame: NSRect(x: 0, y: 0, width: 640, height: 480), isPreview: false, settings: prefs)!
+        let initial = view.engine.savedFigure()
+        let seed = RoseEngine()
+        for _ in 0..<180 { seed.step() }
+        let bookmark = seed.savedFigure()
+        prefs.set(bookmark, forKey: "figureState.v1")
+        view.startAnimation()
+        precondition(view.engine.savedFigure() == (resume ? bookmark : initial))
+        for _ in 0..<3 {
+            for _ in 0..<50 { view.engine.step() }
+            let running = view.engine.savedFigure()
+            view.startAnimation()
+            precondition(view.engine.savedFigure() == running, "Duplicate start reset an active session")
+            view.stopAnimation()
+            let saved = prefs.array(forKey: "figureState.v1") as? [Int]
+            view.startAnimation()
+            precondition(view.engine.savedFigure() == (resume ? running : initial),
+                         "A reused full-screen view ignored the resume preference")
+            precondition(prefs.array(forKey: "figureState.v1") as? [Int] == saved,
+                         "Starting a new session changed its saved bookmark")
+        }
+        view.stopAnimation()
+        if !resume { precondition(prefs.array(forKey: "figureState.v1") as? [Int] == bookmark) }
+    }
+    let name = "cz.coolajz.ARose.reused-thumbnail.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.set(appearance, forKey: "appearance")
+    let thumbnail = ARoseView(frame: NSRect(x: 0, y: 0, width: 200, height: 125), isPreview: true, settings: prefs)!
+    for _ in 0..<20 { thumbnail.engine.step() }
+    let warmup = thumbnail.engine.savedFigure()
+    thumbnail.startAnimation()
+    precondition(thumbnail.engine.savedFigure() == warmup, "First start discarded prepared geometry")
+    thumbnail.stopAnimation(); thumbnail.startAnimation()
+    precondition(thumbnail.engine.savedFigure() == warmup, "Temporary thumbnail stop reset its animation")
+    thumbnail.stopAnimation()
+}
+print("OK: reused live views restart or restore as configured; active starts and thumbnail stop/start retain their figure.")
+
 // Regression: the legacy host can discard a short-running saver without stopAnimation.
 do {
     let name = "cz.coolajz.ARose.abrupt-tests.\(UUID().uuidString)"

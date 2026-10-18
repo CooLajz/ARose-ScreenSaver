@@ -69,6 +69,7 @@ final class ARoseView: ScreenSaverView {
     private var accumulator: TimeInterval = 0
     private var displayClock: AnyObject?
     private var animationActive = false
+    private var hasStartedAnimation = false
     private var awaitingFirstAnimationFrame = false
     private var screenObserver: NSObjectProtocol?
     private var previousHistory = [[RoseEngine.ModernPoint]]()
@@ -195,7 +196,9 @@ final class ARoseView: ScreenSaverView {
         }
         idlePreviewImage = nil
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
-        if configuration() != loadedConfiguration { reset() }
+        // A real new session starts fresh, then optionally restores its bookmark.
+        // Keep first-start warm-up and temporary thumbnail stop/start unchanged.
+        if configuration() != loadedConfiguration || (!isPreview && hasStartedAnimation) { reset() }
         updateRetroRaster()
         if !isPreview && !figureSession {
             if Self.figureWriter == nil { Self.figureWriter = self }
@@ -212,6 +215,7 @@ final class ARoseView: ScreenSaverView {
         cpuTextUpdatedAt = 0
         super.startAnimation()
         animationActive = true
+        hasStartedAnimation = true
         awaitingFirstAnimationFrame = engine.modern && engine.modernHistory.isEmpty
         updateDisplayClock()
     }

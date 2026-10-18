@@ -27,11 +27,17 @@ The classic `.saver` is distributed separately and is never installed, replaced
 or removed by the app. Existing classic preferences remain separate from the
 extension's sandbox preferences. Neither format migrates the other's settings.
 Inno Setup
-updates a stable machine-wide installation in Program Files and copies ARose.scr
+updates a stable machine-wide installation (Program Files by default) and copies ARose.scr
 to the 64-bit Windows system directory for screen saver discovery. Installation
 and updates require administrator approval. HKLM stores the installation path;
 preferences and weekly checking remain per-user. Uninstall removes update tasks
-whose executable path matches this installation, without changing user preferences.
+whose executable path matches this installation, without changing ARose preferences.
+Silent upgrades reuse the previously selected installation directory, including
+custom paths. Uninstall clears only screen saver selections matching the deleted
+app/system ARose.scr in currently loaded user profiles, including the original
+user when elevation uses another administrator. Other screen savers and wallpaper
+settings remain unchanged. Offline profiles are never loaded or edited; those
+users should select another saver before uninstalling the shared installation.
 Standalone `.saver.zip` and `.scr` assets have no updater dependency.
 
 Manual checking is always available in the installed companion. Weekly checking
@@ -103,6 +109,10 @@ signatures do not replace Gatekeeper notarization or Authenticode.
 
 - Native Windows build + installer compile, install/uninstall under a standard
   account, Czech/English UI, static CRT imports, preview/settings shortcuts.
+- Silent upgrade from a custom installation directory, with no second default
+  installation; uninstall cleanup for loaded user profiles while preserving
+  unrelated screen saver selections and wallpaper settings. The CI installer
+  test uses disposable user hives, not real offline profiles.
 - Opt-in/off registration, restart, sleep, locked/idle desktop deferral, no
   resident helper when no update exists, no duplicate helper/UI instances.
 - Private test feed: upgrade build N to N+1 on both platforms, cancel, offline,

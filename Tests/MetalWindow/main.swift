@@ -33,6 +33,13 @@ final class WindowTest: NSObject, NSApplicationDelegate {
         precondition(startup.engine.frame == 1,
                      "Repeated start reset the clock and advanced the simulation early")
         startup.stopAnimation()
+        startup.startAnimation()
+        precondition(startup.engine.frame == 0 && startup.engine.modernHistory.isEmpty,
+                     "Reused full-screen view continued despite resume being disabled")
+        startup.advanceAnimation(at: 200, interpolate: true)
+        precondition(startup.engine.frame == 1 && !startup.engine.modernHistory.isEmpty,
+                     "Restarted full-screen view did not submit new geometry")
+        startup.stopAnimation()
         print("OK: startup waits for real geometry; repeated start preserves the presentation clock.")
         view = ARoseView(frame: window.contentView!.bounds, isPreview: false, settings: settings)!
         view.autoresizingMask = [.width, .height]; window.contentView = view

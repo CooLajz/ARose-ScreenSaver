@@ -105,6 +105,11 @@ Windows GPU measurements and remaining native runtime checks are recorded in the
 
 ## Resume from last figure
 
+When continuation is off, each new full-screen saver session starts from the
+beginning, including when macOS reuses the same view. Repeated starts of an
+active animation do not reset the figure. Views flagged as previews by macOS
+also keep their progress across temporary stops.
+
 Enable **Resume from last figure** to continue the pattern, rotation and color
 phase on the next run, including after restarting the computer. This option is
 off by default and works in both styles. State is saved on normal exit. macOS also checkpoints the first frame and every

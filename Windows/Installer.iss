@@ -16,7 +16,7 @@ VersionInfoVersion={#AppVersion}.{#AppBuild}
 AppPublisher=CooLajz
 AppPublisherURL=https://github.com/CooLajz/ARose-ScreenSaver
 DefaultDirName={autopf}\ARose ScreenSaver
-UsePreviousAppDir=no
+UsePreviousAppDir=yes
 DefaultGroupName=ARose ScreenSaver
 PrivilegesRequired=admin
 MinVersion=10.0.22000
@@ -57,12 +57,31 @@ Filename: "{app}\ARose Control.exe"; Parameters: "/remove-installed-tasks"; Flag
 english.SaverSettings=Select ARose in screen saver settings
 czech.SaverSettings=Vybrat ARose v nastavení spořiče obrazovky
 [Code]
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+procedure ClearARoseSelection(const RootKey: HKEY; const DesktopKey: String);
 var Selected: string;
 begin
-  if CurUninstallStep = usUninstall then
-    if RegQueryStringValue(HKCU, 'Control Panel\Desktop', 'SCRNSAVE.EXE', Selected) then
-      if (CompareText(Selected, ExpandConstant('{app}\ARose.scr')) = 0) or
-         (CompareText(Selected, ExpandConstant('{sys}\ARose.scr')) = 0) then
-        RegDeleteValue(HKCU, 'Control Panel\Desktop', 'SCRNSAVE.EXE');
+  if RegQueryStringValue(RootKey, DesktopKey, 'SCRNSAVE.EXE', Selected) then
+  begin
+    Selected := RemoveQuotes(Trim(Selected));
+    if (CompareText(Selected, ExpandConstant('{app}\ARose.scr')) = 0) or
+       (CompareText(Selected, ExpandConstant('{sys}\ARose.scr')) = 0) then
+      if not RegDeleteValue(RootKey, DesktopKey, 'SCRNSAVE.EXE') then
+        Log('Unable to clear ARose selection in a loaded user profile.');
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var Users: TArrayOfString;
+    I: Integer;
+begin
+  if CurUninstallStep <> usUninstall then Exit;
+  ClearARoseSelection(HKEY_CURRENT_USER, 'Control Panel\Desktop');
+  { Elevation can run under another administrator. The original logged-in
+    user's hive remains loaded under HKEY_USERS. Never load offline profiles
+    or change a selection that belongs to another screen saver. }
+  if RegGetSubkeyNames(HKEY_USERS, '', Users) then
+    for I := 0 to GetArrayLength(Users) - 1 do
+      if (Copy(Users[I], 1, 4) = 'S-1-') and
+         (Pos('_Classes', Users[I]) = 0) then
+        ClearARoseSelection(HKEY_USERS, Users[I] + '\Control Panel\Desktop');
 end;

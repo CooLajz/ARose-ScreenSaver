@@ -108,6 +108,11 @@ Windows sestavíte a otestujete příkazem `./script/build_windows.ps1` (C++ Bui
 
 ## Pokračování od posledního obrazce
 
+S vypnutou volbou začíná každé nové spuštění systémového spořiče od začátku,
+i když macOS znovu použije stejný pohled. Opakovaný požadavek na spuštění již
+běžící animace obrazec neresetuje. Náhledy označené systémem jako náhled si
+ponechají rozpracovaný obrazec i při dočasném zastavení.
+
 Volba **Pokračovat od posledního obrazce** obnoví při příštím spuštění tvar,
 natočení i barevnou fázi, také po restartu počítače. Ve výchozím nastavení je
 vypnutá a funguje v obou podobách. Stav se ukládá při běžném ukončení. macOS navíc ukládá první snímek a pak každou
