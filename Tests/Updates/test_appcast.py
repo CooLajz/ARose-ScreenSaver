@@ -54,6 +54,8 @@ class AppcastTests(unittest.TestCase):
             signature = base64.b64encode(bytes(range(64))).decode()
             for platform in ['macos', 'windows']:
                 xml = ET.fromstring(module.appcast('1.2.3', '9', platform, payload, signature))
+                self.assertEqual(xml.findtext('./channel/item/{'+module.NS+'}minimumSystemVersion'),
+                                 '14.0' if platform == 'macos' else '10.0.22000')
                 enclosure = xml.find('./channel/item/enclosure')
                 self.assertEqual(enclosure.get('length'), '7')
                 self.assertEqual(enclosure.get('{'+module.NS+'}edSignature'), signature)

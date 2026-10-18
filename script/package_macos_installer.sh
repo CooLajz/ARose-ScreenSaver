@@ -26,9 +26,8 @@ hdiutil detach "$MOUNT" >/dev/null
 hdiutil convert "$STAGING/layout.dmg" -format UDZO -ov -o "dist/releases/ARose-ScreenSaver-v${VERSION}-macOS-universal.dmg" >/dev/null
 hdiutil verify "dist/releases/ARose-ScreenSaver-v${VERSION}-macOS-universal.dmg" >/dev/null
 cp 'dist/ARose.app.zip' "dist/releases/ARose-ScreenSaver-v${VERSION}-macOS-update.zip"
-cp dist/ARose.saver.zip "dist/releases/ARose-ScreenSaver-v${VERSION}-macOS-standalone.saver.zip"
-echo 'macOS installer, update archive and standalone saver prepared in dist/releases/'
+echo 'macOS installer and update archive prepared in dist/releases/'
 
-for asset in "ARose-ScreenSaver-v${VERSION}-macOS-universal.dmg" "ARose-ScreenSaver-v${VERSION}-macOS-update.zip" "ARose-ScreenSaver-v${VERSION}-macOS-standalone.saver.zip"; do
+for asset in "ARose-ScreenSaver-v${VERSION}-macOS-universal.dmg" "ARose-ScreenSaver-v${VERSION}-macOS-update.zip"; do
     (cd dist/releases && shasum -a 256 "$asset" > "$asset.sha256")
 done

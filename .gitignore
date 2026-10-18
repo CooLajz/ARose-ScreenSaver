@@ -11,3 +11,7 @@ xcuserdata/
 *.p8
 *.mobileprovision
 build-windows/
+
+# Local masters; README embeds the GitHub-hosted video.
+/docs/demo_video.mov
+/docs/demo_video.mp4

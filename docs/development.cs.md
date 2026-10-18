@@ -16,7 +16,7 @@
 
 Aplikace, rozšíření a klasický `.saver` na Macu sdílejí kreslení a konfigurační rozhraní. Každá varianta má vlastní preference a uložené obrazce. Rozšíření používá neveřejné rozhraní ScreenSaver; před úpravou životního cyklu prostudujte [adaptér a provozní ověření](macos-extension.md).
 
-Klasický `.saver` zůstává sestavitelný pro vývoj, ale nepatří mezi plánované veřejné soubory ke stažení. Pro Mac se vydává aplikace v DMG, aktualizační ZIP a appcast. Windows nadále nabízí instalátor i samostatný `.scr`. Některé stávající balicí skripty ještě vytvářejí klasické Mac balíčky; výběr souborů pro vydání je před publikací potřeba sjednotit.
+Klasický `.saver` zůstává sestavitelný pro vývoj, ale nepatří mezi plánované veřejné soubory ke stažení. Pro Mac se vydává aplikace v DMG, aktualizační ZIP a appcast. Windows nadále nabízí instalátor i samostatný `.scr`. Veřejné balení klasické Mac soubory vynechává; místní vývojové archivy jsou oddělené.
 
 ## Sestavení na macOS
 

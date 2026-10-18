@@ -11,7 +11,7 @@ advertise a platform as tested based solely on successful cross-compilation.
   fallback, native `.scr`, embedded preview,
   settings, multi-monitor windows, and English/Czech UI. Primary target: Windows
   11 x64. Native MSVC builds, six tests and local GPU/CPU measurements have passed.
-  Full Windows acceptance remains pending; see [Windows continuation](windows-handoff.md)
+  The maintainer confirmed the final Windows installer and saver test before release; see [Windows continuation](windows-handoff.md)
   and [performance measurements](windows-performance.md).
 - The authors granted permission to publish the remake under MIT. Original private source archives remain excluded; see [third-party notices](../THIRD_PARTY_NOTICES.md).
 - macOS local packages use ad-hoc signing. Windows candidates are unsigned.
@@ -130,4 +130,6 @@ publication remains a separate explicit operation.
 
 ## Public Mac download policy
 
-Publish the installation DMG, app update ZIP, appcast and checksum sidecars. Do not attach a standalone `.saver` archive to public releases. Keep the classic target in the source project for development. Some packaging/CI paths still produce its archive; update the asset selection before the first publication. Windows distribution is unchanged. See [developer setup](development.md) for build instructions and [the user guide](guide.md) for installation.
+Publish the installation DMG, app update ZIP, appcast and checksum sidecars. Do not attach a standalone `.saver` archive to public releases. Keep the classic target in the source project for development. The public packaging/CI path excludes its archive; the local development candidate command remains available. Windows distribution is unchanged. See [developer setup](development.md) for build instructions and [the user guide](guide.md) for installation.
+
+Sign a freshly built app with `python3 script/sign_macos_release.py --identity "Developer ID Application: …"`. This signs nested code inside out with hardened runtime and timestamps, preserving the extension sandbox and updater-helper entitlements. It does not notarize or publish. After notarizing the app archive, staple the extracted app, recreate `dist/ARose.app.zip`, then package, sign, notarize and staple the DMG before generating final checksums and signed appcasts. Never rebuild after final signing.

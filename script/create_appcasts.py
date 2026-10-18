@@ -35,7 +35,7 @@ def appcast(version, build, platform, payload, signature):
     ET.SubElement(item, 'pubDate').text = format_datetime(datetime.now(timezone.utc))
     ET.SubElement(item, f'{{{NS}}}version').text = build
     ET.SubElement(item, f'{{{NS}}}shortVersionString').text = version
-    ET.SubElement(item, f'{{{NS}}}minimumSystemVersion').text = '13.0' if platform == 'macos' else '10.0.22000'
+    ET.SubElement(item, f'{{{NS}}}minimumSystemVersion').text = '14.0' if platform == 'macos' else '10.0.22000'
     attrs = {
         'url': BASE + 'v' + version + '/' + payload.name,
         'length': str(payload.stat().st_size),

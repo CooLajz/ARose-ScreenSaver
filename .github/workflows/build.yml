@@ -27,7 +27,6 @@ jobs:
       - name: Package development candidate
         run: |
           ./script/test_updates.sh
-          ./script/package_candidate.sh
           ./script/package_macos_installer.sh
       - uses: actions/upload-artifact@v4
         with:

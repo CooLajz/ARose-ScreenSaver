@@ -16,7 +16,7 @@
 
 The Mac app, extension and classic `.saver` share rendering and configuration code. They use independent preferences and figure bookmarks. The extension uses the private ScreenSaver extension interface; review [the adapter and runtime acceptance notes](macos-extension.md) before changing its lifecycle.
 
-The classic `.saver` remains buildable for development, but is not a planned public release download. Public Mac installation uses the app DMG; its update ZIP and appcast remain necessary. Windows installer and standalone `.scr` distribution are retained. Some existing packaging scripts still produce legacy Mac artifacts: the release asset selection needs to be aligned before publication.
+The classic `.saver` remains buildable for development, but is not a planned public release download. Public Mac installation uses the app DMG; its update ZIP and appcast remain necessary. Windows installer and standalone `.scr` distribution are retained. The public packaging path excludes classic Mac assets; local development candidate archives are separate.
 
 ## Build on macOS
 
