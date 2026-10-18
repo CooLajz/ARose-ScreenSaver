@@ -16,8 +16,7 @@ advertise a platform as tested based solely on successful cross-compilation.
 - The authors granted permission to publish the remake under MIT. Original private source archives remain excluded; see [third-party notices](../THIRD_PARTY_NOTICES.md).
 - macOS local packages use ad-hoc signing. Windows candidates are unsigned.
 - CI builds development candidates only. It neither creates nor publishes a
-  GitHub Release and has no write permission. The workflow must be verified on
-  GitHub after repository creation; a local test is not a completed CI run.
+  GitHub Release and has no write permission. Final native macOS and Windows CI, including installer checks, passed on 18 October 2026.
 
 ## Local builds
 
@@ -59,9 +58,7 @@ include `development` to distinguish them from future public releases.
    and Intel if claiming both have been tested.
 4. Obtain the appropriate distribution identities. The existing Apple
    Development identity is not a Developer ID Application certificate.
-5. Create the authorized public GitHub repository, configure `origin`, push the
-   intended branch with `-u`, and verify both `git remote -v` and `git branch -vv`.
-   Merely running `git init` does not complete repository setup.
+5. Verify the existing repository, origin and upstream. Change its visibility only as part of an authorized public publication after validating the exact release assets.
 
 ## macOS public distribution
 
@@ -103,8 +100,7 @@ this repository. Do not turn off Gatekeeper to make the release appear ready.
 ## Release process
 
 Use a single version tag, e.g. `v1.0.4`, after matching versions in all three macOS
-Info.plists and Windows resource, manifest, and CMake files. Packaging reads the macOS version and rejects a mismatched Windows binary. Current
-`1.0.3` describes the local development baseline, not an already published release.
+Info.plists and Windows resource, manifest, and CMake files. Packaging reads the macOS version and rejects a mismatched Windows binary. Version `1.0.3` is the first public release.
 
 Create a **draft** GitHub Release at a tested commit. Attach final signed and
 validated packages, checksums and bilingual installation notes. Suggested names:
@@ -133,3 +129,5 @@ publication remains a separate explicit operation.
 Publish the installation DMG, app update ZIP, appcast and checksum sidecars. Do not attach a standalone `.saver` archive to public releases. Keep the classic target in the source project for development. The public packaging/CI path excludes its archive; the local development candidate command remains available. Windows distribution is unchanged. See [developer setup](development.md) for build instructions and [the user guide](guide.md) for installation.
 
 Sign a freshly built app with `python3 script/sign_macos_release.py --identity "Developer ID Application: …"`. This signs nested code inside out with hardened runtime and timestamps, preserving the extension sandbox and updater-helper entitlements. It does not notarize or publish. After notarizing the app archive, staple the extracted app, recreate `dist/ARose.app.zip`, then package, sign, notarize and staple the DMG before generating final checksums and signed appcasts. Never rebuild after final signing.
+
+First-release signing: the app and DMG were accepted by Apple notarization, stapled and accepted by Gatekeeper as Notarized Developer ID. Windows payloads are unsigned; disclose this in the download instructions. Never claim runtime acceptance of untested Intel hardware or macOS versions.

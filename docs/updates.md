@@ -90,7 +90,7 @@ accessed through GitHub's `/releases/latest/download/…` route; their payload
 URLs point to the immutable version tag. Do not rename/modify payloads after
 signing. Tags use `v<major.minor.patch>`; increment the numeric bundle build
 on every released update, in both platform resources/CMake. A draft, prerelease
-or private repository is not a public update feed. No feed is currently live.
+or private repository is not a public update feed. The first public feeds are published with v1.0.3.
 
 Expected release assets (replace 1.0.3 with the intended release version):
 

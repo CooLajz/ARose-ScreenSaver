@@ -34,7 +34,11 @@ V aplikaci najdete dva režimy. Retro se v nastavení jmenuje **Originální Ami
 
 ## Stažení a instalace
 
-**První veřejné vydání se připravuje.** Veřejné instalační balíčky zatím nejsou oznámené. Po vydání budou dostupné v [GitHub Releases](https://github.com/CooLajz/ARose-ScreenSaver/releases); následující postup popisuje jejich plánovanou instalaci.
+**První veřejné vydání: 1.0.3.** Vyberte instalační balíček pro svůj systém:
+
+- [Stáhnout pro macOS — DMG](https://github.com/CooLajz/ARose-ScreenSaver/releases/download/v1.0.3/ARose-ScreenSaver-v1.0.3-macOS-universal.dmg)
+- [Stáhnout pro Windows — instalátor](https://github.com/CooLajz/ARose-ScreenSaver/releases/download/v1.0.3/ARose-ScreenSaver-v1.0.3-Windows-x64-Setup.exe)
+- [Všechny soubory vydání](https://github.com/CooLajz/ARose-ScreenSaver/releases/latest)
 
 ### macOS — macOS 14 a novější
 
@@ -43,7 +47,7 @@ V aplikaci najdete dva režimy. Retro se v nastavení jmenuje **Originální Ami
 3. Spusťte ARose ze složky Aplikace. V nabídce **ARose → Nastavení systémového spořiče…** otevřete systémové nastavení a vyberte ARose.
 4. Tlačítkem **Volby…** nastavte vzhled systémového spořiče.
 
-Aplikace nemusí při běhu spořiče zůstat otevřená. Pro Mac plánujeme jeden instalační DMG; samostatný klasický `.saver` zůstává pouze ve zdrojovém projektu. Balíček obsahuje verze pro Apple Silicon i Intel; rozsah dosavadního ověření uvádí [uživatelský průvodce](docs/guide.cs.md#požadavky-a-stav-vydání).
+Aplikace nemusí při běhu spořiče zůstat otevřená. Pro Mac je k dispozici jeden instalační DMG; samostatný klasický `.saver` zůstává pouze ve zdrojovém projektu. Balíček obsahuje verze pro Apple Silicon i Intel; rozsah dosavadního ověření uvádí [uživatelský průvodce](docs/guide.cs.md#požadavky-a-stav-vydání).
 
 ### Windows — Windows 11, 64bitová verze
 
@@ -51,7 +55,7 @@ Aplikace nemusí při běhu spořiče zůstat otevřená. Pro Mac plánujeme jed
 2. Potvrďte požadavek správce a dokončete instalaci.
 3. V nastavení spořiče obrazovky Windows vyberte **ARose**. Ovládací aplikaci najdete v nabídce Start.
 
-Není potřeba samostatně instalovat .NET ani Visual C++ Redistributable. Pro zájemce zůstane dostupný také [samostatný soubor `.scr`](docs/guide.cs.md#samostatný-spořič-pro-windows).
+Není potřeba samostatně instalovat .NET ani Visual C++ Redistributable. Pro zájemce je dostupný také [samostatný soubor `.scr`](docs/guide.cs.md#samostatný-spořič-pro-windows).
 
 ## Nastavte si vlastní atmosféru
 

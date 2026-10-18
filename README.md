@@ -34,7 +34,11 @@ The app offers two modes. Retro is called **Original Amiga** in settings; the or
 
 ## Download and install
 
-**The first public release is being prepared.** Public installation packages have not been announced yet. Once released, they will be available in [GitHub Releases](https://github.com/CooLajz/ARose-ScreenSaver/releases); the steps below describe their planned installation.
+**First public release: 1.0.3.** Choose the installer for your system:
+
+- [Download for macOS — DMG](https://github.com/CooLajz/ARose-ScreenSaver/releases/download/v1.0.3/ARose-ScreenSaver-v1.0.3-macOS-universal.dmg)
+- [Download for Windows — installer](https://github.com/CooLajz/ARose-ScreenSaver/releases/download/v1.0.3/ARose-ScreenSaver-v1.0.3-Windows-x64-Setup.exe)
+- [All release files](https://github.com/CooLajz/ARose-ScreenSaver/releases/latest)
 
 ### macOS — macOS 14 or later
 
@@ -43,7 +47,7 @@ The app offers two modes. Retro is called **Original Amiga** in settings; the or
 3. Launch ARose from Applications. Choose **ARose → Screen Saver Settings…**, then select ARose in System Settings.
 4. Use **Options…** to configure the system screen saver.
 
-The app does not need to stay open while the screen saver runs. The planned Mac download is a single installation DMG; the classic standalone `.saver` remains in the source project only. The package includes Apple Silicon and Intel builds; see the [user guide](docs/guide.md#requirements-and-release-status) for the scope of testing so far.
+The app does not need to stay open while the screen saver runs. The Mac download is a single installation DMG; the classic standalone `.saver` remains in the source project only. The package includes Apple Silicon and Intel builds; see the [user guide](docs/guide.md#requirements-and-release-status) for the scope of testing so far.
 
 ### Windows — Windows 11, 64-bit
 
@@ -51,7 +55,7 @@ The app does not need to stay open while the screen saver runs. The planned Mac 
 2. Approve the administrator prompt and complete installation.
 3. Select **ARose** in Windows Screen Saver Settings. The companion controls are available from the Start menu.
 
-There is no separate .NET or Visual C++ Redistributable installation. A [standalone `.scr` file](docs/guide.md#standalone-windows-screen-saver) will also be available for those who prefer it.
+There is no separate .NET or Visual C++ Redistributable installation. A [standalone `.scr` file](docs/guide.md#standalone-windows-screen-saver) is also available for those who prefer it.
 
 ## Make it your own
 

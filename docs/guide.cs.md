@@ -4,14 +4,14 @@
 
 ## Požadavky a stav vydání
 
-První veřejné vydání se připravuje. Veřejná kontrola aktualizací bude použitelná po zveřejnění vydání a jeho aktualizačních souborů.
+Verze 1.0.3 je první veřejné vydání. Instalační soubory a aktualizační kanály jsou dostupné v GitHub Releases.
 
 | Platforma | Požadavek | Stav ověření |
 | --- | --- | --- |
 | macOS | macOS 14+ pro aplikaci se systémovým spořičem; Apple Silicon nebo Intel | Ručně ověřováno na Macu M2. Další verze macOS a Intel zatím čekají na provozní ověření. |
-| Windows | Windows 11 x64 | Nativní sestavení a dílčí testy proběhly; závěrečný uživatelský test před prvním vydáním zbývá. |
+| Windows | Windows 11 x64 | Prošly nativní CI, test instalátoru a závěrečný test správce projektu na Windows. |
 
-Současné vývojové balíčky pro Mac mají pouze místní podpis a Windows sestavení nemají distribuční podpis. Podpis Developer ID a notarizace macOS balíčku patří do přípravy veřejného vydání. Samotné úspěšné sestavení nepotvrzuje vyzkoušení na všech systémech.
+Veřejné Mac balíčky mají podpis Developer ID a notarizaci od Applu. Windows soubory nejsou podepsané a systém může zobrazit upozornění na neznámého vydavatele. Samotné úspěšné sestavení nepotvrzuje vyzkoušení na všech systémech.
 
 ## Instalace
 

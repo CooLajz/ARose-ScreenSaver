@@ -4,14 +4,14 @@
 
 ## Requirements and release status
 
-The first public release is being prepared. Public update checks will become usable once the release and its update files are published.
+Version 1.0.3 is the first public release. Downloads and update feeds are published in GitHub Releases.
 
 | Platform | Requirement | Testing status |
 | --- | --- | --- |
 | macOS | macOS 14+ for the app with the system screen saver; Apple Silicon or Intel | Manually tested on a Mac M2. Other macOS versions and Intel hardware still need runtime acceptance. |
-| Windows | Windows 11 x64 | Native builds and individual tests have run; final user acceptance before the first release remains pending. |
+| Windows | Windows 11 x64 | Native CI, installer checks and the maintainer’s final Windows test passed. |
 
-Current Mac development packages use local ad-hoc signing, and Windows builds do not have a distribution signature. Developer ID signing and macOS notarization are part of public release preparation. A successful build does not mean every supported system has been tested.
+Public Mac packages are Developer ID signed and notarized by Apple. Windows binaries are unsigned and Windows may display an unknown-publisher warning. A successful build does not mean every supported system has been tested.
 
 ## Installation
 

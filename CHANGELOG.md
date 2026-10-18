@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — public distribution preparation
+## 1.0.3 — 2026-10-18 — first public release
 
 - Restart reused macOS full-screen views when figure continuation is off; restore
   bookmarks when enabled without resetting active starts or thumbnail playback.
@@ -27,7 +27,7 @@
   reopening and defer recovery during locked/idle sessions.
 
 - Package ARose.app with a native screen saver extension and a drag-to-Applications
-  DMG. Keep the standalone .saver distribution and share rendering/settings code.
+  DMG. Keep the classic .saver in source and share rendering/settings code.
 - Use the system ScreenSaverConfigurationViewController and its completion
   lifecycle for extension Options; verify repeated picker reopening on macOS 27.0.1.
 - Update the companion menu, registration, packaging and documentation for app

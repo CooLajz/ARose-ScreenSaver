@@ -22,8 +22,7 @@ UNINSTALL: Disable weekly checks first, select another screen saver, and move
 ARose.app to the Trash. If separately installed, remove ARose.saver from
 Library/Screen Savers as well. Preferences are retained.
 
-Development candidates are ad-hoc signed, not notarized. Public distribution
-requires Developer ID signing and notarization. The extension uses private
+Public release packages are Developer ID signed and notarized by Apple. The extension uses private
 macOS APIs. Runtime validation is on Apple M2 / macOS 27.0.1; older macOS and
 Intel hardware acceptance remain pending. Do not disable Gatekeeper.
 
@@ -49,7 +48,6 @@ ODINSTALACE: Nejprve vypněte týdenní kontrolu, vyberte jiný spořič a přes
 ARose.app do Koše. Samostatně nainstalovaný ARose.saver případně odstraňte ze
 složky Library/Screen Savers. Preference zůstanou zachovány.
 
-Vývojové balíčky mají místní ad-hoc podpis bez notarizace. Veřejná distribuce
-vyžaduje Developer ID a notarizaci. Rozšíření používá neveřejná rozhraní macOS.
+Veřejné balíčky mají podpis Developer ID a notarizaci od Applu. Rozšíření používá neveřejná rozhraní macOS.
 Provozní ověření proběhlo na Apple M2 / macOS 27.0.1; ověření starších systémů
 a hardwaru Intel zatím chybí. Nevypínejte Gatekeeper.
