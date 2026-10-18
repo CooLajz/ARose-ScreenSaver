@@ -308,9 +308,13 @@ final class RoseMetalRenderer {
             for (age, points) in history.enumerated() {
                 let alpha = glow * (0.25 + 0.75 * Double(age + 1) / Double(history.count)) * 0.5
                 for p in points {
-                    instances.append(Sprite(rect: SIMD4(Float((size.width/2 + p.x*scale)*backing - halo/2),
-                                                        Float((size.height/2 - p.y*scale)*backing - halo/2), Float(halo), Float(halo)),
-                                            parameters: SIMD4(Float(min(255, Int(p.hue*256))), Float(alpha), 0, 0)))
+                    // Keep intermediate types explicit for older Swift compilers
+                    // used by CI; preserve the original arithmetic order.
+                    let x = Float((size.width/2 + p.x*scale)*backing - halo/2)
+                    let y = Float((size.height/2 - p.y*scale)*backing - halo/2)
+                    let rect = SIMD4<Float>(x, y, Float(halo), Float(halo))
+                    let parameters = SIMD4<Float>(Float(min(255, Int(p.hue*256))), Float(alpha), 0, 0)
+                    instances.append(Sprite(rect: rect, parameters: parameters))
                 }
             }
             let length = instances.count * MemoryLayout<Sprite>.stride
