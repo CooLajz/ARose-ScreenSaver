@@ -52,3 +52,25 @@
 "Forget saved figure" = "Zapomenout uložený obrazec";
 
 "Figure will reset after saving" = "Obrazec se resetuje po uložení";
+
+// Installation and updates
+"Install ARose…" = "Nainstalovat ARose…";
+"Check for Updates…" = "Zkontrolovat aktualizace…";
+"Check automatically every week" = "Automaticky kontrolovat jednou týdně";
+"Unable to change automatic update checks." = "Automatickou kontrolu aktualizací se nepodařilo změnit.";
+"Install ARose first." = "Nejprve nainstalujte ARose.";
+"Use Install ARose… before enabling weekly checks." = "Před zapnutím týdenní kontroly zvolte Nainstalovat ARose…";
+"Use Install ARose… before checking for updates." = "Před kontrolou aktualizací zvolte Nainstalovat ARose…";
+"Allow ARose background activity in System Settings." = "Povolte činnost ARose na pozadí v Nastavení systému.";
+"This copy does not include the installer." = "Tato kopie neobsahuje instalátor.";
+"Download the installation package from GitHub Releases." = "Stáhněte instalační balíček z GitHub Releases.";
+"Installation failed." = "Instalace se nezdařila.";
+"ARose was installed for your user account." = "ARose byl nainstalován pro váš uživatelský účet.";
+"Select ARose in System Settings → Screen Saver. If System Settings was already open, quit and reopen it to load the new version." = "Vyberte ARose v Nastavení systému → Spořič obrazovky. Pokud již bylo Nastavení systému otevřené, ukončete je a znovu otevřete, aby se načetla nová verze.";
+"Install ARose for your user account?" = "Nainstalovat ARose pro váš uživatelský účet?";
+"The app and screen saver will be installed without changing your settings. Automatic update checks remain optional." = "Aplikace a spořič se nainstalují bez změny vašeho nastavení. Automatická kontrola aktualizací je volitelná.";
+"Not Now" = "Nyní ne";
+"Quit the installed ARose app before installing this version." = "Před instalací této verze ukončete nainstalovanou aplikaci ARose.";
+"Installation and updates…" = "Instalace a aktualizace…";
+"Install the companion app to manage updates." = "Pro správu aktualizací nainstalujte doprovodnou aplikaci.";
+"The standalone screen saver works without the companion app." = "Samostatný spořič funguje i bez doprovodné aplikace.";

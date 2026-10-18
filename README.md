@@ -125,3 +125,18 @@ On macOS 14 and later, Modern animation follows the display refresh rate,
 including 120 Hz, and interpolates positions and colors between the unchanged
 50 Hz simulation steps. Original Amiga mode and older macOS retain PAL pacing.
 The system may lower the actual refresh rate under power or display constraints.
+
+On macOS, Original Amiga mode renders at the drawable's physical pixel resolution,
+including Retina. The center follows the screen and the initial target radius is
+one quarter of its shorter dimension. Later table radii remain fixed, so figures
+are relatively smaller on larger screens and points are not magnified. Resizing
+preserves the figure and clears its trail. Windows still uses the 800 × 600 raster.
+
+## Installation and updates
+
+The release tooling now prepares a per-user macOS DMG installer and a Windows
+installer, plus independent `.saver.zip` / `.scr` downloads. Companion apps offer
+manual checking and optional weekly checking (off by default). After confirmation,
+updates download, verify and install through Sparkle / WinSparkle. Standalone
+savers need no updater or additional runtime. Public downloads are not live yet.
+See [installation and update details](docs/updates.md).

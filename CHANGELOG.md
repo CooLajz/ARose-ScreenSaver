@@ -2,6 +2,18 @@
 
 ## Unreleased — public distribution preparation
 
+- Cache the macOS Metal CPU overlay per in-flight slot; repaint only when
+  displayed text, view size or backing scale changes. Update text once per second.
+  Verify cached pixels and invalidation on value and size changes.
+
+- Render macOS retro mode at native backing resolution with screen-centered
+  coordinates and a screen-dependent initial radius, keeping table radii fixed.
+  Preserve figure state and clear trails when the drawable size changes.
+
+- Correct macOS and Windows rotation to render twice the stored global angle and
+  advance point phase on the first step, matching the original implementation.
+  Add Windows opening-phase checks at all five speeds and refresh parity snapshots.
+
 - Move macOS Modern interpolation and sprite preparation to a Metal compute
   shader with a device-RGB rainbow lookup and reusable endpoint buffers.
   Compare 45 GPU readbacks against CPU interpolation and benchmark preparation.
@@ -80,3 +92,12 @@
 - Localize settings and preview UI into English and Czech.
 - Provide a companion-app settings bridge for the intermittent system Options
   dialog problem; preserve saved user preferences.
+
+### Installation and updates (unreleased)
+
+- Add per-user macOS installation, Windows Inno Setup packaging, and independent
+  standalone screen saver downloads.
+- Add companion update controls with Sparkle / WinSparkle, signed payloads,
+  manual checking, and opt-in weekly background checks outside the saver.
+- Preserve preferences and saved figures across updates; document signing,
+  release assets, and native upgrade acceptance requirements.

@@ -12,7 +12,7 @@ check(engine.tracks.count == 96, "Počet bodů")
 engine.step()
 check(engine.tracks.allSatisfy { $0.history[0].x == 400 && $0.history[0].y == 300 }, "První snímek musí být ve středu")
 engine.step()
-// Original truncation makes x=400 and y=300 for radius=1 after a 0.75° rotation.
+// Integer truncation keeps radius=1 at the center after the original phase/rotation updates.
 check(engine.tracks[0].history[1].x == 400 && engine.tracks[0].history[1].y == 300, "Celočíselná rotace")
 for mode in 0...2 {
     let colors = RoseEngine.palette(mode: mode)
@@ -65,3 +65,27 @@ check(Set(samples.map { Int($0.hue * 65536) }).count > 96, "Plynulá paleta pře
 modern.tail = 1; modern.step()
 check(modern.modernHistory.count == 1, "Zkrácení moderní stopy")
 print("OK: moderní subpixelové souřadnice, plynulé odstíny a historie stop.")
+
+// Independent opening-phase checks from the original rotation rules.
+let opening = RoseEngine(); opening.modern = true
+opening.step()
+check(opening.tracks[0].angle == 1437, "Original first step advances point phase by -0.75 degrees")
+opening.step()
+let openingPoint = opening.modernHistory.last![0]
+let expectedAngle = Double.pi / 240 // +1.5 degrees global minus 0.75 degrees point phase
+check(abs(openingPoint.x - cos(expectedAngle)) < 1e-12 && abs(openingPoint.y - sin(expectedAngle)) < 1e-12,
+      "Original global rotation uses twice the stored angle")
+
+for (w, h) in [(320,256), (640,512), (800,600), (1920,1080), (3840,2160)] {
+    let native = RoseEngine(width: w, height: h)
+    check(native.savedFigure()[3] == min(w / 2, h / 2) / 2, "Native initial radius")
+    native.step()
+    check(native.tracks.allSatisfy { $0.history[0].x == w/2 && $0.history[0].y == h/2 }, "Native center")
+    for _ in 0..<250 { native.step() }
+    check(native.savedFigure()[3] == 50, "Control-table radii must not scale with resolution")
+    let state = native.savedFigure()
+    native.resizeRaster(width: h, height: w)
+    check(native.savedFigure() == state, "Resize must preserve figure state")
+    check(native.pixels.count == w*h && native.pixels.allSatisfy { $0 == 0 }, "Resize clears old trail")
+}
+print("OK: native retro sizes, initial radius, fixed table radii and resize continuation.")

@@ -120,3 +120,10 @@ the real release URL. Do not create a download badge for an unavailable release.
 References: [GitHub releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
 [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution),
 [Windows screen saver installation](https://learn.microsoft.com/en-us/windows/win32/devnotes/scrnsave-exe).
+
+## Installer and updater additions
+
+See [the current installation/update workflow](updates.md) for DMG/EXE packaging,
+standalone assets, Ed25519 signing, appcast generation and required native upgrade
+acceptance. These supersede the ZIP-only asset suggestions above. Public release
+publication remains a separate explicit operation.

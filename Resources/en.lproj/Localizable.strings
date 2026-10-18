@@ -52,3 +52,25 @@
 "Forget saved figure" = "Forget saved figure";
 
 "Figure will reset after saving" = "Figure will reset after saving";
+
+// Installation and updates
+"Install ARose…" = "Install ARose…";
+"Check for Updates…" = "Check for Updates…";
+"Check automatically every week" = "Check automatically every week";
+"Unable to change automatic update checks." = "Unable to change automatic update checks.";
+"Install ARose first." = "Install ARose first.";
+"Use Install ARose… before enabling weekly checks." = "Use Install ARose… before enabling weekly checks.";
+"Use Install ARose… before checking for updates." = "Use Install ARose… before checking for updates.";
+"Allow ARose background activity in System Settings." = "Allow ARose background activity in System Settings.";
+"This copy does not include the installer." = "This copy does not include the installer.";
+"Download the installation package from GitHub Releases." = "Download the installation package from GitHub Releases.";
+"Installation failed." = "Installation failed.";
+"ARose was installed for your user account." = "ARose was installed for your user account.";
+"Select ARose in System Settings → Screen Saver. If System Settings was already open, quit and reopen it to load the new version." = "Select ARose in System Settings → Screen Saver. If System Settings was already open, quit and reopen it to load the new version.";
+"Install ARose for your user account?" = "Install ARose for your user account?";
+"The app and screen saver will be installed without changing your settings. Automatic update checks remain optional." = "The app and screen saver will be installed without changing your settings. Automatic update checks remain optional.";
+"Not Now" = "Not Now";
+"Quit the installed ARose app before installing this version." = "Quit the installed ARose app before installing this version.";
+"Installation and updates…" = "Installation and updates…";
+"Install the companion app to manage updates." = "Install the companion app to manage updates.";
+"The standalone screen saver works without the companion app." = "The standalone screen saver works without the companion app.";

@@ -26,6 +26,7 @@ final class RoseEngine {
             return result
         }
     }
+    private(set) var rasterWidth = 800, rasterHeight = 600
     private(set) var pixels = [UInt8](repeating: 0, count: width * height)
     private(set) var frame = 0
     private(set) var tracks = (0..<96).map { Track(angle: $0 * 15, base: $0 * 15, color: $0) }
@@ -33,7 +34,8 @@ final class RoseEngine {
     private var radiusB = 0, targetB = 0, deltaB = 1
     private var frequency = 0, targetFrequency = 0, deltaFrequency = 1
     private var rotation = 0, mode = 1, modeIndex = 0, modeCounter = 0, slot = 0
-    private var changed = false
+    // The original starts with nothing=TRUE, advancing point phase on the first step.
+    private var changed = true
     private var a = Sequence(entries: RoseTables.radiusA)
     private var b = Sequence(entries: RoseTables.radiusB)
     private var f = Sequence(entries: RoseTables.frequency)
@@ -44,7 +46,7 @@ final class RoseEngine {
     /// 0: monochrome; 1: ECS palette; 2: AGA palette.
     var paletteMode = 2
 
-    init() {
+    init(width: Int = 800, height: Int = 600) {
         // The original accumulates the angle in a single-precision temporary.
         var angle: Float = 0
         var s = [Int](), c = [Int]()
@@ -55,12 +57,24 @@ final class RoseEngine {
             angle = Float(Double(angle) + increment)
         }
         sine = s; cosine = c
+        resizeRaster(width: width, height: height)
+    }
+
+    // A screen-mode change clears the trail but preserves an ongoing figure.
+    func resizeRaster(width: Int, height: Int) {
+        let w = max(1, width), h = max(1, height)
+        if frame == 0 { targetA = min(w / 2, h / 2) / 2 }
+        guard w != rasterWidth || h != rasterHeight else { return }
+        rasterWidth = w; rasterHeight = h
+        pixels = [UInt8](repeating: 0, count: w * h)
+        for i in tracks.indices { tracks[i].history = Array(repeating: Point(), count: 20) }
+        slot = 0
     }
 
     private func wrap(_ value: Int) -> Int { (value % 1440 + 1440) % 1440 }
     private func plot(_ point: Point, _ color: UInt8) {
-        guard point.x >= 0, point.x < Self.width, point.y >= 0, point.y < Self.height else { return }
-        pixels[point.y * Self.width + point.x] = color
+        guard point.x >= 0, point.x < rasterWidth, point.y >= 0, point.y < rasterHeight else { return }
+        pixels[point.y * rasterWidth + point.x] = color
     }
 
     func step() {
@@ -68,12 +82,14 @@ final class RoseEngine {
         slot %= length
         // Erase all old positions first, as the Amiga module does, including overlaps.
         for track in tracks { plot(track.history[slot], 0) }
-        let sr = sine[rotation], cr = cosine[rotation]
+        // The stored angle advances once; the original renders twice that angle.
+        let renderRotation = wrap(2 * rotation)
+        let sr = sine[renderRotation], cr = cosine[renderRotation]
         var modernPoints = [ModernPoint]()
         if modern { modernPoints.reserveCapacity(Self.pointCount) }
         let radians = Double.pi / 720
-        let modernSin = sin(Double(rotation) * radians)
-        let modernCos = cos(Double(rotation) * radians)
+        let modernSin = sin(Double(renderRotation) * radians)
+        let modernCos = cos(Double(renderRotation) * radians)
         for i in tracks.indices {
             let theta = tracks[i].angle
             if modern {
@@ -90,9 +106,10 @@ final class RoseEngine {
             let phi = wrap(frequency * tracks[i].base / 200)
             let u = (radiusA * sine[theta] + radiusB * sine[phi]) / 4096
             let v = (radiusA * cosine[theta] + radiusB * cosine[phi]) / 4096
-            let point = Point(x: 400 + (v * cr - u * sr) / 4096,
-                              y: 300 - (v * sr + u * cr) / 4096)
-            tracks[i].history[slot] = point
+            let point = Point(x: rasterWidth / 2 + (v * cr - u * sr) / 4096,
+                              y: rasterHeight / 2 - (v * sr + u * cr) / 4096)
+            // Original resets off-screen trail coordinates to the top-left pixel.
+            tracks[i].history[slot] = point.x >= 0 && point.x < rasterWidth && point.y >= 0 && point.y < rasterHeight ? point : Point()
             let color = paletteMode == 0 ? 1 : (paletteMode == 1 ? tracks[i].color / 8 + 1 : tracks[i].color + 1)
             plot(point, UInt8(color))
             tracks[i].color = (tracks[i].color + 1) % 96
@@ -153,7 +170,7 @@ final class RoseEngine {
             tracks[i].color = (v[23] + i) % 96
             tracks[i].history = Array(repeating: Point(), count: 20)
         }
-        slot = 0; pixels = [UInt8](repeating: 0, count: Self.width * Self.height)
+        slot = 0; pixels = [UInt8](repeating: 0, count: rasterWidth * rasterHeight)
         modernHistory.removeAll()
         return true
     }

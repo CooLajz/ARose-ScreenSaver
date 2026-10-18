@@ -11,6 +11,16 @@ uint64_t hashPixels(const std::vector<uint8_t>& pixels) {
 }
 int main(int argc,char**) {
     if(argc>1) {
+        for(int speed=1; speed<=5; ++speed) {
+            Engine opening; opening.settings.speed=speed;
+            opening.step();
+            if(opening.savedFigure()[22] != 1440-speed) return 12;
+            opening.step();
+            const auto point=opening.modernHistory.back()[0];
+            const double angle=speed*std::acos(-1.0)/720;
+            if(std::abs(point.x-std::cos(angle))>1e-12 || std::abs(point.y-std::sin(angle))>1e-12) return 13;
+        }
+        std::cout<<"PASS: original initial phase and doubled global rotation at all five speeds\n";
         for(int hz : {60, 120, 144}) {
             FrameTiming timing;
             int steps = 0;

@@ -24,6 +24,21 @@ fi
 "$ZIG_BIN" c++ -target x86_64-windows-gnu -std=c++17 -O2 -Wall -Wextra -ffp-contract=off \
     -DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0a00 -municode -Wl,--subsystem,windows \
     Windows/main.cpp .build/windows/ARose.res -ld2d1 -ldwmapi -ldwrite -lcomctl32 -lshell32 -ladvapi32 -luser32 -lgdi32 \
-    -ld3d11 -ldxgi -ld3dcompiler -lwindowscodecs -lole32 \
+    -ld3d11 -ldxgi -ld3dcompiler_47 -lwindowscodecs -lole32 \
     -o dist/windows/ARose.scr
 printf '%s\n' 'Built dist/windows/ARose.scr (Windows x64, unsigned; runtime testing still required).'
+
+python3 script/fetch_updaters.py windows
+python3 script/release_version.py --format header > .build/windows/UpdateVersion.h
+if [[ "$(uname -s)" == Darwin ]]; then
+    (cd Windows && "$ROOT_DIR/.build/windows/resinator" "$ZIG_LIB" /fo "$ROOT_DIR/.build/windows/Updates.res" Updates/Updates.rc)
+else
+    (cd Windows && "$ZIG_BIN" rc /fo "$ROOT_DIR/.build/windows/Updates.res" Updates/Updates.rc)
+fi
+"$ZIG_BIN" c++ -target x86_64-windows-gnu -std=c++17 -O2 -Wall -Wextra \
+    -DUNICODE -D_UNICODE -D_WIN32_WINNT=0x0a00 -municode -Wl,--subsystem,windows \
+    -I .build/updaters/WinSparkle-0.9.4/include -I .build/windows \
+    Windows/Updates/main.cpp .build/windows/Updates.res .build/updaters/WinSparkle-0.9.4/x64/Release/WinSparkle.lib \
+    -lole32 -loleaut32 -ladvapi32 -lshell32 -luser32 -luuid \
+    -o 'dist/windows/ARose Control.exe'
+cp .build/updaters/WinSparkle-0.9.4/x64/Release/WinSparkle.dll dist/windows/

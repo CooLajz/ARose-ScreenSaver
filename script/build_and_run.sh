@@ -6,6 +6,7 @@ MODE="${1:-run}"
 case "$MODE" in run|--build|--verify|--debug|--logs|--telemetry) ;; *) echo 'Použití: script/build_and_run.sh [--build|--verify|--debug|--logs|--telemetry]' >&2; exit 2;; esac
 if [[ "$MODE" != --build ]]; then pkill -x 'ARose Preview' >/dev/null 2>&1 || true; fi
 mkdir -p .build dist
+python3 script/fetch_updaters.py macos
 xcodebuild -project ARose.xcodeproj -scheme ARose -configuration Release \
     -derivedDataPath "$ROOT_DIR/.build" -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build > .build/build.log 2>&1 || {
     tail -80 .build/build.log; exit 1;
@@ -16,6 +17,13 @@ STAGING_DIR="$(mktemp -d /private/tmp/arose-package.XXXXXX)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 for name in 'ARose.saver' 'ARose Preview.app'; do
     ditto --norsrc --noextattr ".build/Build/Products/Release/$name" "$STAGING_DIR/$name"
+    if [[ "$name" == 'ARose Preview.app' ]]; then
+        mkdir -p "$STAGING_DIR/$name/Contents/Frameworks" "$STAGING_DIR/$name/Contents/Library/LaunchAgents"
+        ditto --norsrc --noextattr .build/updaters/Sparkle.framework "$STAGING_DIR/$name/Contents/Frameworks/Sparkle.framework"
+        cp Resources/LaunchAgents/*.plist "$STAGING_DIR/$name/Contents/Library/LaunchAgents/"
+        ditto --norsrc --noextattr "$STAGING_DIR/ARose.saver" "$STAGING_DIR/$name/Contents/Resources/ARose.saver"
+        cp .build/updaters/LICENSE "$STAGING_DIR/$name/Contents/Resources/Sparkle-LICENSE.txt"
+    fi
     codesign --force --sign - --timestamp=none "$STAGING_DIR/$name"
     codesign --verify --strict "$STAGING_DIR/$name"
     ditto -c -k --norsrc --noextattr --keepParent "$STAGING_DIR/$name" "dist/$name.zip"

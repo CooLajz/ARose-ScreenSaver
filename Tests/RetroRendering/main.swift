@@ -48,3 +48,23 @@ for palette in 0...2 {
     precondition(render(retained, width: 800, height: 600) == snapshot, "Published image mutated")
 }
 print("OK: \(comparisons) retro comparisons match indexed rendering exactly; retained snapshots remain immutable.")
+
+for (w, h) in [(320,256), (640,512), (1920,1080)] {
+    let preferences = UserDefaults(suiteName: "cz.coolajz.ARose.native-retro.\(UUID().uuidString)")!
+    preferences.setVolatileDomain(["appearance": 0], forName: UserDefaults.argumentDomain)
+    let view = ARoseView(frame: NSRect(x: 0, y: 0, width: w, height: h), isPreview: true, settings: preferences)!
+    precondition(view.engine.rasterWidth == w && view.engine.rasterHeight == h)
+    precondition(view.engine.savedFigure()[3] == min(w/2,h/2)/2)
+    view.engine.step()
+    precondition(view.frameImage()!.width == w && view.frameImage()!.height == h)
+    let state = view.engine.savedFigure()
+    view.setFrameSize(NSSize(width: h, height: w)); view.layout()
+    precondition(view.engine.rasterWidth == h && view.engine.rasterHeight == w)
+    precondition(view.engine.savedFigure() == state)
+    let window = NSWindow(contentRect: view.bounds, styleMask: [.titled], backing: .buffered, defer: false)
+    window.contentView = view
+    precondition(view.engine.rasterWidth == Int(view.bounds.width * window.backingScaleFactor))
+    precondition(view.engine.rasterHeight == Int(view.bounds.height * window.backingScaleFactor))
+    window.contentView = nil
+}
+print("OK: native retro view images, resize and Retina backing dimensions.")

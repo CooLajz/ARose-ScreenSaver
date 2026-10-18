@@ -42,8 +42,20 @@ folder.mkdir(parents=True, exist_ok=True)
 archive = folder/f'{name}.zip'
 with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as z:
     z.write(binary, f'{name}/ARose.scr')
+    companion = binary.parent/'ARose Control.exe'
+    updater = binary.parent/'WinSparkle.dll'
+    if companion.is_file() and updater.is_file():
+        z.write(companion, f'{name}/ARose Control.exe')
+        z.write(updater, f'{name}/WinSparkle.dll')
+        for notice in (root/'.build/updaters/WinSparkle-0.9.4').glob('COPYING*'):
+            z.write(notice, f'{name}/Licenses/WinSparkle/{notice.name}')
     for src, dst in [('LICENSE','LICENSE'), ('THIRD_PARTY_NOTICES.md','THIRD_PARTY_NOTICES.md'), ('Windows/INSTALL.txt','INSTALL.txt')]:
         z.write(root/src, f'{name}/{dst}')
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 archive.with_suffix('.zip.sha256').write_text(f'{digest}  {archive.name}\n')
+# Also offer the truly standalone saver, without a companion or DLL.
+import shutil
+standalone = folder/f'ARose-ScreenSaver-v{version}-Windows-x64.scr'
+shutil.copy2(binary, standalone)
+standalone.with_suffix('.scr.sha256').write_text(f'{hashlib.sha256(payload).hexdigest()}  {standalone.name}\n')
 print(f'Development candidate: {archive.relative_to(root)}')

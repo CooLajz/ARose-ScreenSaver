@@ -51,7 +51,7 @@ Skript vytváří univerzální balíčky, odstraní nepřípustná metadata Fin
 
 Výchozí nastavení pro nové uživatele je **Moderní**, **záře 80 %** a **Dlouhá stopa** (16 kroků), s normální rychlostí. Již uložené volby se při aktualizaci nemění.
 
-**Originální Amiga** zachovává bodovou bitmapu 800 × 600, celočíselné souřadnice, původní palety i mazání stop.
+**Originální Amiga** zachovává celočíselné souřadnice, původní palety a mazání stop. Na macOS kreslí do skutečného rozlišení displeje; Windows zatím používá pevný rastr 800 × 600.
 
 **Moderní** používá stejnou sekvenci obrazců a 96 bodů, ale souřadnice počítá s desetinnou přesností. Body vykresluje jako jemné vyhlazené kruhy přímo do aktuálního rozlišení displeje včetně Retiny. Jejich velikost je omezená, takže se při zvětšení okna nemění v roztažené čtverce. Obrazce se rovnoměrně přizpůsobují kratší straně plochy, bez deformace na širokoúhlých nebo svislých monitorech. Plynulá RGB duha není omezená indexovanou paletou; starší body stopy postupně zeslabují. Maximální skutečně zobrazený počet odstínů závisí na displeji a jeho barevné hloubce.
 
@@ -82,7 +82,7 @@ Balíček obsahuje náhledy `thumbnail.png` a `thumbnail@2x.png`; Xcode je ponec
 
 Základem je rozbor `BB.ARose020881`, interní verze **1.2 (05.04.95)** z archivu **ARoseBlitz1.1**. Přeneseny byly řídicí tabulky, 96 bodů, celočíselné výpočty, trigonometrické tabulky, rotace, barvy a kruhová historie stop. Režim AGA používá 96 odstínů duhy na původně 256barevné obrazovce; režim ECS používá 12 odstínů na 16barevné obrazovce.
 
-V režimu Originální Amiga se kreslí na logickou plochu 800 × 600. Obraz se zvětšuje bez vyhlazování, se zachovaným poměrem stran. Na širokoúhlých monitorech zůstávají černé okraje. Simulace běží 50 kroků za sekundu, v návaznosti na PAL časování. Začíná malým obrazcem, který postupně roste a mění se.
+Na macOS režim Originální Amiga kreslí přímo do fyzických pixelů aktuální plochy, včetně Retina displejů. Střed leží uprostřed plochy a počáteční cílový poloměr odpovídá čtvrtině kratšího rozměru. Další poloměry z původních tabulek zůstávají pevné: na větším displeji jsou obrazce relativně menší a body se nezvětšují. Změna velikosti zachová rozpracovanou figuru a vymaže její stopu. Simulace běží 50 kroků za sekundu, v návaznosti na PAL časování. Začíná malým obrazcem, který postupně roste a mění se.
 
 Nejde o úplnou emulaci Amigy. Zatím není implementováno původní ukládání rozpracovaného obrazce mezi spuštěními. Přesná shoda jednotlivých snímků s emulovanou nebo fyzickou Amigou nebyla měřena. Podrobnosti a adresy rozebraných rutin jsou v [poznámkách k rekonstrukci](docs/reconstruction.md).
 
@@ -138,3 +138,12 @@ Na macOS 14 a novějším se moderní animace řídí obnovováním displeje, v�
 120 Hz. Polohy a barvy mezisnímků se interpolují mezi nezměněnými 50Hz kroky
 simulace. Původní režim Amiga a starší macOS zachovávají PAL časování.
 Skutečnou obnovovací frekvenci může systém omezit podle displeje a napájení.
+
+## Instalace a aktualizace
+
+Nástroje připravují instalační DMG pro macOS a instalátor pro Windows, vedle nich
+samostatné `.saver.zip` / `.scr`. Doprovodné aplikace nabízejí ruční kontrolu a
+volitelnou týdenní kontrolu (výchozí stav vypnuto). Po potvrzení se aktualizace
+stáhne, ověří a nainstaluje přes Sparkle / WinSparkle. Samostatné spořiče
+nevyžadují aktualizátor ani další runtime. Veřejné balíčky zatím nejsou vydané.
+Podrobnosti jsou v [dokumentaci aktualizací](docs/updates.md).

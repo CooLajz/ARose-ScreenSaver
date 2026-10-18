@@ -26,5 +26,19 @@
 	<string>ARose recreation. Original concept: W. Breyha &amp; M. Matzl, 1994–1995.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/CooLajz/ARose-ScreenSaver/releases/latest/download/appcast-macos.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>pSFLjqyn8G8zGioAiqcp+9+sEc1MUCMPw/+FSrohFjs=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>604800</integer>
 </dict>
 </plist>

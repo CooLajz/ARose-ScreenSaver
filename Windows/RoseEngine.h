@@ -48,7 +48,8 @@ class Engine {
     int frequency = 0, targetFrequency = 0, deltaFrequency = 1;
     int rotation = 0, mode = 1, modeCounter = 0, slot = 0;
     size_t modeIndex = 0;
-    bool changed = false;
+    // The original advances point phase on the first simulation step.
+    bool changed = true;
     Sequence a{tables::radiusA}, b{tables::radiusB}, f{tables::frequency};
     static int wrap(int n) { return (n % 1440 + 1440) % 1440; }
     void plot(Point p, uint8_t color) {
@@ -76,9 +77,10 @@ public:
         const int length = std::clamp(settings.tail, 1, 20);
         slot %= length;
         for (const auto& t : tracks) plot(t.history[slot], 0);
-        const int sr = sine[rotation], cr = cosine[rotation];
+        const int renderRotation = wrap(2 * rotation);
+        const int sr = sine[renderRotation], cr = cosine[renderRotation];
         constexpr double radians = 3.14159265358979323846 / 720;
-        const double ms = std::sin(rotation * radians), mc = std::cos(rotation * radians);
+        const double ms = std::sin(renderRotation * radians), mc = std::cos(renderRotation * radians);
         std::array<ModernPoint, 96> points{};
         for (size_t i = 0; i < tracks.size(); ++i) {
             auto& t = tracks[i];

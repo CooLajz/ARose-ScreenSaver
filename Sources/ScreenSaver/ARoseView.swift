@@ -98,6 +98,7 @@ final class ARoseView: ScreenSaverView {
     }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        updateRetroRaster()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
         if let window {
@@ -110,6 +111,7 @@ final class ARoseView: ScreenSaverView {
     }
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
+        updateRetroRaster()
         needsLayout = true
         if #available(macOS 14.0, *), let link = displayClock as? CADisplayLink {
             let maximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
@@ -130,6 +132,7 @@ final class ARoseView: ScreenSaverView {
     var glow = 0.0
     private var debugCPU = false
     private var cpuMeter = RoseCPUMeter()
+    private var cpuTextUpdatedAt = 0.0
     private var cpuTextValue = ""
     private var cpuText = ""
     private var cpuTextSize = NSSize.zero
@@ -182,6 +185,7 @@ final class ARoseView: ScreenSaverView {
         configurationLog.notice("Figure start preview=\(self.isPreview) size=\(self.bounds.width)x\(self.bounds.height) enabled=\(self.defaults.bool(forKey: "resumeFigure"))")
         defaults.synchronize()
         if configuration() != loadedConfiguration { reset() }
+        updateRetroRaster()
         if !isPreview && !figureSession {
             if Self.figureWriter == nil { Self.figureWriter = self }
             lastFigureActivity = ProcessInfo.processInfo.systemUptime
@@ -194,6 +198,7 @@ final class ARoseView: ScreenSaverView {
         }
         lastTime = 0; accumulator = 0
         cpuMeter = RoseCPUMeter()
+        cpuTextUpdatedAt = 0
         super.startAnimation()
         animationActive = true
         updateDisplayClock()
@@ -256,6 +261,7 @@ final class ARoseView: ScreenSaverView {
         lastFigureSave = 0
         debugCPU = defaults.bool(forKey: "debugCPU")
         cpuMeter = RoseCPUMeter()
+        cpuTextUpdatedAt = 0
         modernColors.removeAll(keepingCapacity: true)
         previousHistory.removeAll()
         interpolationEnabled = false
@@ -264,6 +270,7 @@ final class ARoseView: ScreenSaverView {
         let storedGlow = defaults.double(forKey: "glow")
         glow = storedGlow.isFinite ? min(1, max(0, storedGlow)) : 0
         engine.modern = defaults.integer(forKey: "appearance") == 1
+        updateRetroRaster()
         engine.speed = min(5, max(1, defaults.integer(forKey: "speed")))
         engine.tail = min(20, max(1, defaults.integer(forKey: "tail")))
         engine.paletteMode = min(2, max(0, defaults.integer(forKey: "palette")))
@@ -331,8 +338,8 @@ final class ARoseView: ScreenSaverView {
             for i in engine.pixels.indices { rgba[i] = retroPalette[Int(engine.pixels[i])] }
         }
         guard let provider = CGDataProvider(data: data as CFData) else { return nil }
-        return CGImage(width: RoseEngine.width, height: RoseEngine.height,
-                       bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: RoseEngine.width * 4,
+        return CGImage(width: engine.rasterWidth, height: engine.rasterHeight,
+                       bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: engine.rasterWidth * 4,
                        space: colorSpace,
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
                            .union(.byteOrder32Big), provider: provider,
@@ -354,16 +361,25 @@ final class ARoseView: ScreenSaverView {
                 renderer.surface.frame = bounds
                 renderer.surface.contentsScale = backing
                 renderer.surface.isHidden = false
+                if debugCPU { updateCPUText() }
                 if renderer.present(size: bounds.size, backing: backing, history: engine.modernHistory,
                                     glow: glow, previous: interpolationEnabled ? previousHistory : engine.modernHistory,
-                                    alpha: interpolationEnabled ? accumulator / 0.02 : 1, revision: presentationRevision, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil) { return }
+                                    alpha: interpolationEnabled ? accumulator / 0.02 : 1, revision: presentationRevision, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil,
+                                    overlayKey: debugCPU ? cpuText : nil) { return }
                 renderer.surface.isHidden = true
             }
         } else { metalRenderer?.surface.isHidden = true }
         needsDisplay = true
     }
+    private func updateRetroRaster() {
+        guard !engine.modern, bounds.width > 0, bounds.height > 0 else { return }
+        let backing = window?.backingScaleFactor ?? 1
+        engine.resizeRaster(width: Int((bounds.width * backing).rounded()),
+                            height: Int((bounds.height * backing).rounded()))
+    }
     override func layout() {
         super.layout()
+        updateRetroRaster()
         guard let renderer = metalRenderer, let window else { return }
         if renderer.surface.frame != bounds || renderer.surface.contentsScale != window.backingScaleFactor {
             displayAnimationFrame()
@@ -381,15 +397,14 @@ final class ARoseView: ScreenSaverView {
         defer { if debugCPU { drawCPU(in: context) } }
         if engine.modern { drawModern(in: context); return }
         guard let image = frameImage() else { return }
-        let scale = min(bounds.width / 800, bounds.height / 600)
-        let rect = CGRect(x: (bounds.width - 800 * scale) / 2,
-                          y: (bounds.height - 600 * scale) / 2,
-                          width: 800 * scale, height: 600 * scale)
         context.interpolationQuality = .none
         context.setShouldAntialias(false)
-        context.draw(image, in: rect)
+        context.draw(image, in: bounds)
     }
-    private func drawCPU(in context: CGContext) {
+    private func updateCPUText() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard cpuTextUpdatedAt == 0 || now - cpuTextUpdatedAt >= 1 else { return }
+        cpuTextUpdatedAt = now
         cpuMeter.sample()
         let single = cpuMeter.singleCorePercent.map { String(format: "%.1f %%", $0) } ?? "—"
         let total = cpuMeter.percent.map { String(format: "%.1f %%", $0) } ?? "—"
@@ -399,6 +414,9 @@ final class ARoseView: ScreenSaverView {
             cpuText = roseText("Process CPU") + "\n" + value
             cpuTextSize = (cpuText as NSString).size(withAttributes: cpuTextAttributes)
         }
+    }
+    private func drawCPU(in context: CGContext) {
+        updateCPUText()
         context.saveGState()
         defer { context.restoreGState() }
         context.setShouldAntialias(true)
@@ -602,13 +620,13 @@ final class RoseOptions: NSObject {
 
     init(defaults: UserDefaults, apply: @escaping () -> Void) {
         self.defaults = defaults; self.apply = apply
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 520),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 560),
                           styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
         // Retain the window for this presentation; subsequent requests get fresh content.
         window.isReleasedWhenClosed = false
         let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 520))
+        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 560))
         window.contentViewController = content
         window.title = roseText("ARose Settings")
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
@@ -640,6 +658,7 @@ final class RoseOptions: NSObject {
         stack.addArrangedSubview(resumeFigure)
         stack.addArrangedSubview(forgetButton)
         stack.addArrangedSubview(debugCPU)
+        stack.addArrangedSubview(NSButton(title: roseText("Installation and updates…"), target: self, action: #selector(openUpdates)))
         let cancel = NSButton(title: roseText("Cancel"), target: self, action: #selector(cancelAction))
         let save = NSButton(title: roseText("Save"), target: self, action: #selector(saveAction))
         save.keyEquivalent = "\r"; cancel.keyEquivalent = "\u{1b}"
@@ -664,6 +683,16 @@ final class RoseOptions: NSObject {
         debugCPU.state = defaults.bool(forKey: "debugCPU") ? .on : .off
         glowChanged()
         updatePalette()
+    }
+    @objc private func openUpdates() {
+        let app = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/ARose Preview.app")
+        if FileManager.default.fileExists(atPath: app.path) { NSWorkspace.shared.open(app) }
+        else {
+            let alert = NSAlert()
+            alert.messageText = roseText("Install the companion app to manage updates.")
+            alert.informativeText = roseText("The standalone screen saver works without the companion app.")
+            alert.addButton(withTitle: roseText("OK")); alert.beginSheetModal(for: window)
+        }
     }
     @objc private func glowChanged() {
         glowValue.stringValue = glowSlider.integerValue == 0 ? roseText("Off") : "\(glowSlider.integerValue) %"

@@ -13,3 +13,12 @@ The archive’s `ARose.readme` labels the original software **GIFTWARE**. The do
 Before publishing the complete source or binaries, clarify the applicable redistribution and derivative-work permissions with the relevant rights holders, or establish and document another appropriate basis. Record the scope of any permission here. Do not describe the complete project as unconditionally MIT-licensed while this is unresolved.
 
 Original executables and archives are not included in this repository or development packages. New contributions are offered under the root MIT license only to the extent of rights held by their contributors. No affiliation with or endorsement by the original authors is claimed.
+
+## Companion updater libraries
+
+The companion applications bundle Sparkle 2.10.0 (macOS) and WinSparkle 0.9.4
+(Windows), both under the MIT license. Their upstream license notices are
+included with the distributed binaries (including bundled dependency notices).
+They are not linked into the standalone screen savers.
+Sources: https://github.com/sparkle-project/Sparkle and
+https://github.com/vslavik/winsparkle .

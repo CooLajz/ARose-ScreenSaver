@@ -37,7 +37,13 @@ final class RoseMetalRenderer {
             + Double(r.ru_utime.tv_usec + r.ru_stime.tv_usec) / 1e6
     }
     private var slots = [Slot(), Slot(), Slot()]
+    private struct OverlayStamp: Equatable {
+        let text: String
+        let size: CGSize
+        let backing: CGFloat
+    }
     private final class Slot {
+        var overlayStamp: OverlayStamp?
         var endpoints: MTLBuffer?
         var endpointRevision: UInt64?
         var halos: MTLBuffer?
@@ -109,7 +115,7 @@ final class RoseMetalRenderer {
     /// No blocking GPU wait on the display thread. Drop a presentation if all three
     /// resource slots are busy; the PAL simulation clock continues independently.
     func present(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double, previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1, revision: UInt64? = nil,
-                 foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> Bool {
+                 foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil, overlayKey: String? = nil) -> Bool {
         failureLock.lock(); let failed = commandFailed; failureLock.unlock()
         guard !failed else { return false }
         guard available.wait(timeout: .now()) == .success else {
@@ -127,7 +133,7 @@ final class RoseMetalRenderer {
         }
         let slot = slots[slotIndex]
         guard let command = encode(target: drawable.texture, slot: slot, size: size, backing: backing,
-                                   history: history, glow: glow, previous: previous, alpha: alpha, revision: revision, foreground: foreground, overlay: overlay) else {
+                                   history: history, glow: glow, previous: previous, alpha: alpha, revision: revision, foreground: foreground, overlay: overlay, overlayKey: overlayKey) else {
             available.signal(); return false
         }
         slotIndex = (slotIndex + 1) % slots.count
@@ -144,14 +150,14 @@ final class RoseMetalRenderer {
 
     /// Synchronous readback exists only for regression tests, never the display loop.
     func snapshot(size: CGSize, backing: CGFloat, history: [[RoseEngine.ModernPoint]], glow: Double, previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1,
-                  foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> CGImage? {
+                  foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil, overlayKey: String? = nil) -> CGImage? {
         let width = Int(size.width * backing), height = Int(size.height * backing)
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
         d.usage = [.renderTarget]; d.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: d) else { return nil }
         let preparationStart = Self.cpuTime()
         guard let command = encode(target: texture, slot: snapshotSlot, size: size, backing: backing,
-                                   history: history, glow: glow, previous: previous, alpha: alpha, foreground: foreground, overlay: overlay) else { return nil }
+                                   history: history, glow: glow, previous: previous, alpha: alpha, foreground: foreground, overlay: overlay, overlayKey: overlayKey) else { return nil }
         lastSnapshotPreparationCPU = Self.cpuTime() - preparationStart
         command.commit(); command.waitUntilCompleted()
         lastSnapshotGPUTime = max(0, command.gpuEndTime - command.gpuStartTime)
@@ -199,7 +205,7 @@ final class RoseMetalRenderer {
     private func encode(target: MTLTexture, slot: Slot, size: CGSize, backing: CGFloat,
                         history: [[RoseEngine.ModernPoint]], glow: Double,
                         previous: [[RoseEngine.ModernPoint]]? = nil, alpha: Double = 1, revision: UInt64? = nil,
-                        foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil) -> MTLCommandBuffer? {
+                        foreground: ((CGContext) -> Void)? = nil, overlay: ((CGContext) -> Void)? = nil, overlayKey: String? = nil) -> MTLCommandBuffer? {
         let width = target.width, height = target.height
         // Production only uploads a small debug label, never a full-screen bitmap.
         let overlayWidth = min(width, Int(512 * backing))
@@ -212,7 +218,7 @@ final class RoseMetalRenderer {
                 d.usage = .shaderRead; d.storageMode = .shared
                 let alignment = device.minimumLinearTextureAlignment(for: .rgba8Unorm)
                 let rowBytes = ((width * 4 + alignment - 1) / alignment) * alignment
-                slot.context = nil; slot.texture = nil; slot.buffer = nil
+                slot.context = nil; slot.texture = nil; slot.buffer = nil; slot.overlayStamp = nil
                 guard let buffer = device.makeBuffer(length: rowBytes * height, options: .storageModeShared),
                       let texture = buffer.makeTexture(descriptor: d, offset: 0, bytesPerRow: rowBytes) else { return nil }
                 slot.buffer = buffer; slot.texture = texture
@@ -221,14 +227,19 @@ final class RoseMetalRenderer {
                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
             }
             guard let context = slot.context, slot.texture != nil else { return nil }
-            context.clear(CGRect(x: 0, y: 0, width: width, height: height))
-            context.saveGState(); context.scaleBy(x: backing, y: backing)
-            if let foreground { foreground(context) }
-            else {
-                context.translateBy(x: -size.width + CGFloat(overlayWidth) / backing, y: 0)
-                overlay?(context)
+            let stamp = foreground == nil ? overlayKey.map { OverlayStamp(text: $0, size: size, backing: backing) } : nil
+            // Each in-flight slot owns its texture; never modify another slot's GPU input.
+            if stamp == nil || stamp != slot.overlayStamp {
+                context.clear(CGRect(x: 0, y: 0, width: width, height: height))
+                context.saveGState(); context.scaleBy(x: backing, y: backing)
+                if let foreground { foreground(context) }
+                else {
+                    context.translateBy(x: -size.width + CGFloat(overlayWidth) / backing, y: 0)
+                    overlay?(context)
+                }
+                context.restoreGState()
+                slot.overlayStamp = stamp
             }
-            context.restoreGState()
         }
         guard let command = queue.makeCommandBuffer() else { return nil }
         let gpuCount = history.reduce(0) { $0 + $1.count }

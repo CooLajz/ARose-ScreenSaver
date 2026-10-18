@@ -148,6 +148,7 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     constexpr int lengths[] = {1, 4, 8, 12, 16, 20};
     if (msg == WM_INITDIALOG) {
         forgetPending=false;
+        SetDlgItemTextW(d,IDC_UPDATES,tr(L"Installation and updates…",L"Instalace a aktualizace…"));
         SetDlgItemTextW(d,IDC_FORGET_FIGURE,tr(L"Forget saved figure",L"Zapomenout uložený obrazec"));
         SetWindowTextW(d, tr(L"ARose Settings", L"Nastavení ARose"));
         const int ids[] = {IDC_STYLE_LABEL,IDC_SPEED_LABEL,IDC_TRAIL_LABEL,IDC_PALETTE_LABEL,IDC_GLOW_LABEL,IDC_NOTE,IDOK,IDCANCEL};
@@ -179,6 +180,14 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     if(msg==WM_HSCROLL) { updateDialog(d); return TRUE; }
     if(msg==WM_COMMAND) {
         if(LOWORD(wp)==IDC_STYLE && HIWORD(wp)==CBN_SELCHANGE) { updateDialog(d); return TRUE; }
+        if(LOWORD(wp)==IDC_UPDATES) {
+            wchar_t module[32768]{};
+            GetModuleFileNameW(nullptr,module,32768);
+            auto companion=std::filesystem::path(module).parent_path()/L"ARose Control.exe";
+            if(std::filesystem::exists(companion)) ShellExecuteW(d,L"open",companion.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
+            else MessageBoxW(d,tr(L"Install the companion app to manage updates. The standalone screen saver works without it.",L"Pro správu aktualizací nainstalujte doprovodnou aplikaci. Samostatný spořič funguje i bez ní."),L"ARose",MB_OK|MB_ICONINFORMATION);
+            return TRUE;
+        }
         if(LOWORD(wp)==IDC_FORGET_FIGURE) {
             forgetPending=true;
             SetDlgItemTextW(d,IDC_FORGET_FIGURE,tr(L"Figure will reset after saving",L"Obrazec se resetuje po uložení"));

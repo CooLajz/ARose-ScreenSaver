@@ -142,3 +142,24 @@ for tick in 0..<120 {
     if tick >= 24 { referenceTotal += referenceCPU; computeTotal += gpu.lastSnapshotPreparationCPU }
 }
 print("INTERPOLATION BENCHMARK CPU preparation ms/frame: \(referenceTotal / 96 * 1000) -> \(computeTotal / 96 * 1000)")
+
+var overlayPaints = 0
+func cachedLabel(_ context: CGContext) {
+    overlayPaints += 1
+    context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+    context.fill(CGRect(x: 600, y: 10, width: 20, height: 20))
+}
+let labelSize = CGSize(width: 640, height: 480)
+let cachedFirst = gpu.snapshot(size: labelSize, backing: 1, history: [], glow: 0, overlay: cachedLabel, overlayKey: "first")!
+for _ in 0..<10 {
+    let reused = gpu.snapshot(size: labelSize, backing: 1, history: [], glow: 0, overlay: cachedLabel, overlayKey: "first")!
+    precondition((reused.dataProvider!.data! as Data) == (cachedFirst.dataProvider!.data! as Data))
+}
+precondition(overlayPaints == 1, "Unchanged overlay must reuse texture")
+_ = gpu.snapshot(size: labelSize, backing: 1, history: [], glow: 0, overlay: cachedLabel, overlayKey: "second")
+precondition(overlayPaints == 2, "Changed value must repaint")
+_ = gpu.snapshot(size: CGSize(width: 700, height: 480), backing: 1, history: [], glow: 0, overlay: cachedLabel, overlayKey: "second")
+precondition(overlayPaints == 3, "Resize must repaint even when cropped texture dimensions stay unchanged")
+_ = gpu.snapshot(size: labelSize, backing: 2, history: [], glow: 0, overlay: cachedLabel, overlayKey: "second")
+precondition(overlayPaints == 4, "Backing-scale change must repaint")
+print("OK: overlay reuse preserves pixels; value, bounds and backing changes invalidate the cache.")

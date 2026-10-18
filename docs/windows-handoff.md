@@ -118,3 +118,32 @@ both bookmarks intact. Saving removes both values and increments the QWORD
 checkpointing so an old session does not intentionally restore its old state.
 Verify reset through `/c` and F1 in `/w`, with resume both enabled and disabled,
 and with another instance running. These registry/UI paths require Windows.
+
+## Rotation alignment (18 October 2026)
+
+Windows now renders twice the stored global rotation and advances point phase
+on the first step, matching the macOS correction. Both retro and Modern use the
+corrected angle. Tests check all five opening speeds, 600,000 simulation steps,
+prepared drawing data, saved-state continuation and 24 live Swift/C++ parity
+checkpoints at matching 800 x 600 simulation dimensions. Stored parity snapshots
+were refreshed from the corrected Swift engine after live parity passed.
+The Direct3D/Direct2D renderers are unchanged. Native Windows visual acceptance
+of this correction remains pending. Reset the saved figure to compare fresh
+starts; existing bookmarks keep their saved point phase.
+The macOS Zig cross-build of the full saver currently fails at linking because
+this toolchain cannot resolve `d3dcompiler`. Portable C++ tests compile and pass;
+no new Windows package was produced for this correction on macOS.
+
+## Companion installer and updates (prepared on macOS)
+
+`Windows/Updates` adds ARose Control with preview/settings launch buttons,
+manual WinSparkle checking and an opt-in weekly per-user scheduled task.
+`Windows/Installer.iss` packages the saver, control app and WinSparkle DLL using
+Inno Setup 6.3+; no runtime installation is required on the user's machine.
+Cross-compilation of the saver/control and inspection of PE imports passed on
+macOS. Native MSVC compilation, Inno Setup compilation, installation/uninstall,
+task registration and an actual signed N → N+1 upgrade remain to be tested on
+Windows. Use `script/package_windows.ps1`; see `docs/updates.md`. Private update
+keys stay on the signing Mac; only the public key is in Git. Do not regenerate
+it during a Windows build. In-place upgrades require the installed companion;
+a portable preview still works, but directs update users to the full installer.
