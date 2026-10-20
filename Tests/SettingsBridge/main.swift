@@ -244,7 +244,7 @@ do {
 print("OK: reset requires Save, Cancel preserves progress, resume preference stays enabled.")
 
 // Display cadence must not alter the PAL simulation or its saved state.
-for hz in [60, 120, 144] {
+for hz in [30, 60, 120, 144] {
     let prefs = UserDefaults(suiteName: "cz.coolajz.ARose.timing.\(UUID().uuidString)")!
     prefs.setVolatileDomain(["appearance": 1, "resumeFigure": false], forName: UserDefaults.argumentDomain)
     let view = ARoseView(frame: .zero, isPreview: true, settings: prefs)!
@@ -268,4 +268,82 @@ let b = RoseEngine.ModernPoint(x: 10, y: 0, hue: 0.01)
 let midpoint = RoseInterpolation.history(previous: [[a]], current: [[b]], alpha: 0.5)[0][0]
 precondition(midpoint.x == 5 && midpoint.y == 5 && abs(midpoint.hue) < 1e-12)
 precondition(RoseInterpolation.history(previous: [], current: [[b]], alpha: 0.5)[0][0].x == b.x)
-print("OK: 60/120/144 Hz preserve exact PAL state; pause, sleep, trail warm-up and hue-wrap interpolation.")
+print("OK: 30/60/120/144 Hz preserve exact PAL state; pause, sleep, trail warm-up and hue-wrap interpolation.")
+
+// Suspending the desktop must freeze the actual host callback without ending
+// its figure session. Resuming continues instead of resetting the figure.
+for appearance in [0, 1] {
+    let name = "cz.coolajz.ARose.desktop-suspension.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    prefs.set(appearance, forKey: "appearance")
+    let view = ARoseView(frame: .zero, isPreview: false, settings: prefs)!
+    view.startAnimation()
+    view.advanceFrames(500)
+    let before = view.engine.savedFigure()
+    view.renderingSuspended = true
+    for _ in 0..<10 { view.animateOneFrame() }
+    precondition(view.engine.savedFigure() == before, "Suspended desktop advanced")
+    view.maximumPresentationFramesPerSecond = 30
+    precondition(view.engine.savedFigure() == before, "Frame cap reset the figure")
+    let frame = view.engine.frame
+    view.renderingSuspended = false
+    view.animateOneFrame()
+    precondition(view.engine.frame == frame + 1, "Desktop resume reset or caught up")
+    view.stopAnimation()
+}
+print("OK: retro and modern desktop suspension preserve the figure and resume without catch-up.")
+
+// Only wallpaper opts into easing. The 2-second smoothstep ramp integrates
+// to exactly one second of simulation at every supported display cadence.
+for appearance in [0, 1] {
+    for hz in [30, 60, 120, 144] {
+        let name = "cz.coolajz.ARose.playback-easing.\(UUID().uuidString)"
+        let prefs = UserDefaults(suiteName: name)!
+        defer { prefs.removePersistentDomain(forName: name) }
+        prefs.set(appearance, forKey: "appearance")
+        let view = ARoseView(frame: .zero, isPreview: false, settings: prefs)!
+        precondition(view.pauseTransitionDuration == 0, "Saver hosts must keep immediate pause")
+        view.pauseTransitionDuration = 2
+        view.startAnimation()
+        view.advanceAnimation(at: 100, interpolate: true, playbackTime: 100)
+        for tick in 1...hz {
+            let time = 100 + Double(tick) / Double(hz)
+            view.advanceAnimation(at: time, interpolate: true, playbackTime: time)
+        }
+        precondition(view.engine.frame == 51, "Initial launch must run at full speed")
+        view.paused = true
+        view.setPlaybackPaused(true, at: 101)
+        for tick in 1...(2 * hz) {
+            let time = 101 + Double(tick) / Double(hz)
+            // Workspace polling must not restart the ramp every second.
+            view.setPlaybackPaused(true, at: time)
+            view.advanceAnimation(at: time, interpolate: true, playbackTime: time)
+        }
+        precondition(view.renderingSuspended && view.engine.frame == 101, "Braking changed with \(hz) Hz")
+        let frozen = view.engine.savedFigure()
+        view.advanceAnimation(at: 200, interpolate: true, playbackTime: 200)
+        precondition(view.engine.savedFigure() == frozen)
+        view.paused = false
+        view.setPlaybackPaused(false, at: 200)
+        view.advanceAnimation(at: 200, interpolate: true, playbackTime: 200)
+        precondition(view.engine.savedFigure() == frozen, "Resume must not jump one simulation step")
+        for tick in 1...(2 * hz) {
+            let time = 200 + Double(tick) / Double(hz)
+            view.advanceAnimation(at: time, interpolate: true, playbackTime: time)
+        }
+        precondition(!view.renderingSuspended && view.engine.frame == 151, "Run-up changed with \(hz) Hz")
+        view.stopAnimation()
+    }
+}
+var envelope = RosePlaybackEnvelope()
+envelope.setPaused(true, duration: 2, at: 10)
+let beforeReverse = envelope.rate(at: 10.7)
+envelope.setPaused(false, duration: 2, at: 10.7)
+precondition(abs(envelope.rate(at: 10.7) - beforeReverse) < 1e-12, "Reversing must preserve speed")
+precondition(envelope.rate(at: 12.7) == 1)
+// A continuous clock can finish braking while macOS suspends the process.
+envelope.setPaused(true, duration: 2, at: 20)
+envelope.setPaused(false, duration: 2, at: 200)
+precondition(envelope.rate(at: 200) == 0 && envelope.rate(at: 201) == 0.5 && envelope.rate(at: 202) == 1)
+print("OK: wallpaper brakes and accelerates over 2 seconds at 30/60/120/144 Hz; launch, reversal and wake remain continuous.")

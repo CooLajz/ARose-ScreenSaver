@@ -103,3 +103,13 @@
 "Download ARose.saver from GitHub Releases and open it in Finder." = "Download ARose.saver from GitHub Releases and open it in Finder.";
 
 "Unable to refresh the screen saver." = "Unable to refresh the screen saver.";
+
+"Live Wallpaper (Experimental)" = "Live Wallpaper (Experimental)";
+"ARose · Live Wallpaper" = "ARose · Live Wallpaper";
+"Return to Window" = "Return to Window";
+"Launch at Login" = "Launch at Login";
+"Unable to change launch at login." = "Unable to change launch at login.";
+"Pause for Full Screen Apps" = "Pause for Full Screen Apps";
+"ARose · Paused for Full Screen" = "ARose · Paused for Full Screen";
+"ARose · Paused for Screen Saver" = "ARose · Paused for Screen Saver";
+"ARose · Paused While Locked" = "ARose · Paused While Locked";

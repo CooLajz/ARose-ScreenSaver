@@ -103,3 +103,13 @@
 "Download ARose.saver from GitHub Releases and open it in Finder." = "Stáhněte ARose.saver z GitHub Releases a otevřete jej ve Finderu.";
 
 "Unable to refresh the screen saver." = "Spořič se nepodařilo obnovit.";
+
+"Live Wallpaper (Experimental)" = "Živé pozadí (experimentální)";
+"ARose · Live Wallpaper" = "ARose · Živé pozadí";
+"Return to Window" = "Zpět do okna";
+"Launch at Login" = "Spouštět po přihlášení";
+"Unable to change launch at login." = "Spouštění po přihlášení se nepodařilo změnit.";
+"Pause for Full Screen Apps" = "Pozastavit při aplikaci na celé obrazovce";
+"ARose · Paused for Full Screen" = "ARose · Pozastaveno při celé obrazovce";
+"ARose · Paused for Screen Saver" = "ARose · Pozastaveno při spořiči";
+"ARose · Paused While Locked" = "ARose · Pozastaveno při zamčení";

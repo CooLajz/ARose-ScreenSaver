@@ -70,6 +70,18 @@ Continuation restores the figure, rotation and color phase rather than a saved i
 | Advance animation | ⌘ N | — |
 | Quit | ⌘ Q | Esc; first leaves full screen if active |
 
+### Experimental live wallpaper on Mac (development build)
+
+Choose **Pattern → Live Wallpaper (Experimental)** to try the animation on the primary monitor beneath desktop icons. The window and Dock icon disappear; use the ARose menu bar icon for settings, pause, restart, **Return to Window**, or quit. Wallpaper shares the companion app's settings. Leave full screen and close settings before enabling it.
+
+**Launch at Login** uses macOS login items. Enable it from a copy in Applications, and complete any approval in System Settings. The app remembers its last mode, including live wallpaper, on the next launch. Login launch is initially disabled and independent of weekly update checks.
+
+Live wallpaper alone smoothly brakes over two seconds when paused and accelerates over two seconds when resumed. This also applies to automatic pauses for full screen, screen savers, and screen lock. Initial launch from black starts at normal speed. The regular app window and system screen saver keep immediate pause and resume. System sleep may interrupt braking; wake resumes with a gentle run-up without catching up time spent asleep.
+
+**Pause for Full Screen Apps** is initially enabled. Full screen stops wallpaper rendering, which automatically resumes on return. Players such as Infuse may not report the system full-screen state, so ARose also checks once per second whether another app's window covers the entire wallpaper display. A manual pause remains in effect. Detection uses the active Space and window bounds, not window contents or titles, and needs no Screen Recording or Accessibility permission.
+
+Quitting ARose reveals the original wallpaper. Modern desktop animation is capped at 30 frames/s while preserving the original simulation timing. Rendering automatically pauses during the system screen saver, screen lock, display sleep, or an inactive user session, even with the fullscreen option disabled. It resumes on return while preserving a manual pause. Screen saver detection uses notifications and an actual visible window rather than merely a running host process. This initial prototype has no monitor picker or detection of ordinary windows covering the desktop; Mission Control and Stage Manager need further operational testing.
+
 ## Updates
 
 Choose **Check for Updates…** in the installed companion app. When a new version is available, the update window guides you through downloading and installing it. Windows may request administrator approval. A Mac app update includes the system screen saver.

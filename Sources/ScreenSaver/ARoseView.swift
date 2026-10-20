@@ -61,6 +61,41 @@ private final class RoseDisplayTarget: NSObject {
     }
 }
 
+// Integrate the speed envelope analytically so easing cannot change with
+// display cadence. Retargeting starts at the current speed, including reversal.
+struct RosePlaybackEnvelope {
+    private var startTime: TimeInterval = 0
+    private var duration: TimeInterval = 0
+    private var startRate = 1.0
+    private(set) var targetRate = 1.0
+
+    func rate(at time: TimeInterval) -> Double {
+        guard duration > 0 else { return targetRate }
+        let t = min(1, max(0, (time - startTime) / duration))
+        return startRate + (targetRate - startRate) * t * t * (3 - 2 * t)
+    }
+    mutating func setPaused(_ paused: Bool, duration: TimeInterval, at time: TimeInterval) {
+        let target = paused ? 0.0 : 1.0
+        guard target != targetRate || duration <= 0 else { return }
+        startRate = rate(at: time)
+        targetRate = target
+        startTime = time
+        self.duration = max(0, duration)
+    }
+    private func integral(at time: TimeInterval) -> Double {
+        let elapsed = time - startTime
+        guard duration > 0 else { return elapsed * targetRate }
+        if elapsed <= 0 { return elapsed * startRate }
+        let t = min(1, elapsed / duration)
+        let easedArea = t * t * t - 0.5 * t * t * t * t
+        return startRate * min(elapsed, duration) + (targetRate - startRate) * duration * easedArea
+            + max(0, elapsed - duration) * targetRate
+    }
+    func animationTime(from start: TimeInterval, to end: TimeInterval) -> TimeInterval {
+        max(0, integral(at: end) - integral(at: start))
+    }
+}
+
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
     static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0, "scaleRetro": true]
@@ -69,6 +104,46 @@ final class ARoseView: ScreenSaverView {
     private var accumulator: TimeInterval = 0
     private var displayClock: AnyObject?
     private var animationActive = false
+    // Opt-in only for live wallpaper. Screen saver hosts and window previews
+    // keep their existing immediate pause behavior.
+    var pauseTransitionDuration: TimeInterval = 0
+    private var playbackEnvelope = RosePlaybackEnvelope()
+    private let playbackEpoch = ContinuousClock.now
+    private var continuingPlayback = false
+    private var playbackTime: TimeInterval {
+        let elapsed = playbackEpoch.duration(to: .now).components
+        return Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+    }
+    func setPlaybackPaused(_ requested: Bool, at time: TimeInterval? = nil) {
+        playbackEnvelope.setPaused(requested, duration: pauseTransitionDuration, at: time ?? playbackTime)
+        if pauseTransitionDuration <= 0 {
+            continuingPlayback = false
+            renderingSuspended = requested
+        } else if !requested && renderingSuspended {
+            continuingPlayback = true
+            renderingSuspended = false
+        }
+    }
+    // The companion's desktop mode can stop all presentation work without
+    // ending the figure session or resetting the simulation on wake.
+    var renderingSuspended = false {
+        didSet {
+            guard renderingSuspended != oldValue else { return }
+            lastTime = 0
+            updateDisplayClock()
+        }
+    }
+    var maximumPresentationFramesPerSecond: Float? {
+        didSet {
+            if #available(macOS 14.0, *) { (displayClock as? CADisplayLink)?.invalidate() }
+            displayClock = nil
+            updateDisplayClock()
+        }
+    }
+    private var presentationFrameRate: Float {
+        let screenMaximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
+        return min(screenMaximum, maximumPresentationFramesPerSecond ?? screenMaximum)
+    }
     private var hasStartedAnimation = false
     private var awaitingFirstAnimationFrame = false
     private var screenObserver: NSObjectProtocol?
@@ -82,7 +157,7 @@ final class ARoseView: ScreenSaverView {
 
     private func updateDisplayClock() {
         guard #available(macOS 14.0, *) else { return }
-        let wanted = animationActive && engine.modern && window != nil
+        let wanted = animationActive && !renderingSuspended && engine.modern && window != nil
         if !wanted {
             (displayClock as? CADisplayLink)?.invalidate()
             displayClock = nil
@@ -92,7 +167,7 @@ final class ARoseView: ScreenSaverView {
         // Prepare GPU resources before starting the display clock.
         displayAnimationFrame()
         let link = displayLink(target: RoseDisplayTarget(self), selector: #selector(RoseDisplayTarget.tick(_:)))
-        let maximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
+        let maximum = presentationFrameRate
         link.preferredFrameRateRange = CAFrameRateRange(minimum: min(60, maximum), maximum: maximum, preferred: maximum)
         link.add(to: .main, forMode: .common)
         displayClock = link
@@ -116,7 +191,7 @@ final class ARoseView: ScreenSaverView {
         updateRetroRaster()
         needsLayout = true
         if #available(macOS 14.0, *), let link = displayClock as? CADisplayLink {
-            let maximum = Float(max(1, window?.screen?.maximumFramesPerSecond ?? 60))
+            let maximum = presentationFrameRate
             link.preferredFrameRateRange = CAFrameRateRange(minimum: min(60, maximum), maximum: maximum, preferred: maximum)
         }
     }
@@ -333,20 +408,26 @@ final class ARoseView: ScreenSaverView {
     }
     override func animateOneFrame() {
         // The host/preview timer remains the fallback for retro and older macOS.
-        guard displayClock == nil else { return }
+        guard !renderingSuspended, displayClock == nil else { return }
         advanceAnimation(at: ProcessInfo.processInfo.systemUptime, interpolate: false)
     }
     fileprivate func displayTick(at time: TimeInterval) {
-        guard animationActive else { return }
+        guard animationActive, !renderingSuspended else { return }
         advanceAnimation(at: time, interpolate: true)
     }
-    func advanceAnimation(at now: TimeInterval, interpolate: Bool) {
-        if paused {
+    func advanceAnimation(at now: TimeInterval, interpolate: Bool, playbackTime: TimeInterval? = nil) {
+        if renderingSuspended || (paused && pauseTransitionDuration <= 0) {
             if debugCPU { displayAnimationFrame() }
             lastTime = now
             return
         }
+        let playbackNow = playbackTime ?? self.playbackTime
         if lastTime == 0 {
+            if continuingPlayback {
+                continuingPlayback = false
+                lastTime = now
+                return
+            }
             previousHistory = engine.modernHistory
             engine.step()
             awaitingFirstAnimationFrame = false
@@ -364,7 +445,9 @@ final class ARoseView: ScreenSaverView {
             checkpointFigureIfNeeded()
         }
         // Preserve PAL pacing even on 60/120 Hz displays; discard time spent asleep.
-        accumulator += min(0.1, max(0, now - lastTime))
+        let elapsed = min(0.1, max(0, now - lastTime))
+        accumulator += pauseTransitionDuration > 0
+            ? playbackEnvelope.animationTime(from: playbackNow - elapsed, to: playbackNow) : elapsed
         let previousFrame = engine.frame
         while accumulator + 1e-12 >= 0.02 {
             if interpolate { previousHistory = engine.modernHistory }
@@ -374,6 +457,9 @@ final class ARoseView: ScreenSaverView {
         // Timer jitter can call us before the next PAL step. Keep the existing
         // image instead of redrawing an identical frame; never clear pending damage.
         if interpolate || engine.frame != previousFrame { displayAnimationFrame() }
+        if pauseTransitionDuration > 0 && playbackEnvelope.targetRate == 0 && playbackEnvelope.rate(at: playbackNow) == 0 {
+            renderingSuspended = true
+        }
     }
     func frameImage() -> CGImage? {
         // The provider owns an immutable snapshot: the asynchronous compositor

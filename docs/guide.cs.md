@@ -70,6 +70,18 @@ Pokračování obnovuje obrazec, natočení a barevnou fázi, nikoli uložený o
 | Posunout animaci dopředu | ⌘ N | — |
 | Ukončit | ⌘ Q | Esc; z celé obrazovky nejprve vrátí okno |
 
+### Experimentální živé pozadí na Macu (vývojová verze)
+
+V nabídce **Obrazec → Živé pozadí (experimentální)** můžete vyzkoušet animaci na hlavním monitoru pod ikonami plochy. Okno a ikona v Docku zmizí; ovládání najdete pod ikonou ARose v horní liště. Nabídka nabízí nastavení, pozastavení, restart, **Zpět do okna** a ukončení. Pozadí používá nastavení doprovodné aplikace. Před zapnutím opusťte celou obrazovku a zavřete nastavení.
+
+Volba **Spouštět po přihlášení** používá systémové přihlašovací položky macOS. Zapněte ji až u kopie ve složce Aplikace; případné schválení dokončete v Nastavení systému. Aplikace si pamatuje poslední režim a při dalším spuštění obnoví i živé pozadí. Autorun je zpočátku vypnutý a je nezávislý na týdenní kontrole aktualizací.
+
+Pouze živé pozadí při pozastavení během dvou sekund plynule zabrzdí a při pokračování se během dvou sekund rozjede. Přechod platí i pro automatickou pauzu při fullscreenu, spořiči nebo zamčení. První spuštění z černé obrazovky začíná normální rychlostí. Běžné okno aplikace a systémový spořič zachovávají okamžitou pauzu a pokračování. Uspání může doběh přerušit; po probuzení se obnoví pozvolný rozjezd bez dohánění času stráveného ve spánku.
+
+Volba **Pozastavit při aplikaci na celé obrazovce** je zpočátku zapnutá. Při fullscreenu zastaví vykreslování pozadí a po návratu automaticky pokračuje. Zachytí také přehrávače jako Infuse, které fullscreen stav nemusí systému oznámit: jednou za sekundu ověří, zda okno jiné aplikace překrývá celý monitor s pozadím. Ručně zapnutá pauza zůstává zachována. Detekce využívá stav pracovní plochy a rozměry oken, nikoli jejich obrazový obsah či titulky, a nevyžaduje oprávnění ke snímání obrazovky ani zpřístupnění.
+
+Ukončením ARose se odkryje původní tapeta. Moderní animace na pozadí má limit 30 snímků/s; výpočty zachovávají původní časování. Při běhu systémového spořiče, zamčení Macu, uspání displeje nebo neaktivní uživatelské relaci se vykreslování automaticky pozastaví, i když je volba pro fullscreen vypnutá. Po návratu pokračuje; ruční pauza zůstává zachována. Spuštění spořiče se zjišťuje podle oznámení a skutečně zobrazeného okna, nikoli jen podle běžícího procesu. Jde o první prototyp bez výběru monitoru a bez zjišťování, zda je plocha zakrytá běžnými okny; Mission Control a Stage Manager vyžadují další provozní ověření.
+
 ## Aktualizace
 
 V nainstalované aplikaci zvolte **Zkontrolovat aktualizace…**. Pokud je nová verze dostupná, aktualizační okno vás provede stažením a instalací. Windows mohou vyžádat potvrzení správce. Aktualizace aplikace na Macu obsahuje i systémový spořič.
