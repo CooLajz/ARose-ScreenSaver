@@ -113,3 +113,9 @@
 "ARose · Paused for Full Screen" = "ARose · Pozastaveno při celé obrazovce";
 "ARose · Paused for Screen Saver" = "ARose · Pozastaveno při spořiči";
 "ARose · Paused While Locked" = "ARose · Pozastaveno při zamčení";
+
+"Luminous points" = "Svítivost";
+"Bright trail heads and additive light where points overlap. Modern mode only." = "Svítivost bodů v moderním režimu: 0 % zachová původní jas, 50 % světelné body, 100 % silnější světlo. Záře se nastavuje samostatně.";
+
+"Point size" = "Velikost bodů";
+"Point size explanation" = "Průměr moderních bodů od 0,75× do 2×. Hodnota 1× zachová původní velikost. Velikost měkké záře zůstává stejná.";

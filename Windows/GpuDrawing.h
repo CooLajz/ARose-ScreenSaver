@@ -177,7 +177,7 @@ public:
     UINT pixelWidth() const { return width; }
     UINT pixelHeight() const { return height; }
     unsigned calls() const { return drawCalls; }
-    bool prepare(HWND window,UINT w,UINT h,float diameter,float glow) {
+    bool prepare(HWND window,UINT w,UINT h,float diameter,float glow,float pointScale=1) {
         if(!pipeline()) return false;
         w=std::max(1u,w); h=std::max(1u,h);
         if(!output || width!=w || height!=h) {
@@ -201,9 +201,9 @@ public:
             if(!bindOutput()) return false;
             width=w; height=h;
         }
-        return preparePoints(diameter) && (glow<=0 || prepareHalos(diameter*(4+12*glow)/2));
+        return preparePoints(diameter*std::clamp(pointScale,0.75f,2.0f)) && (glow<=0 || prepareHalos(diameter*(4+12*glow)/2));
     }
-    bool draw(const PreparedFrame& frame,float glow) {
+    bool draw(const PreparedFrame& frame,float glow,float luminous=0) {
         if(!view || frame.count>20*96) return false;
         size_t count=0;
         if(glow>0) for(size_t i=0;i<frame.count;++i) {
@@ -215,9 +215,11 @@ public:
         for(size_t i=0;i<frame.count;++i) {
             const auto& p=frame.points[i];
             const float x=std::floor(p.x),y=std::floor(p.y),pad=float(pointTile/2);
-            for(unsigned slice=0;slice<(glow>0?2u:1u);++slice) {
-                const auto color=rainbow(p.hue,slice==0?0.9f:0.25f);
-                const float opacity=p.strength*(slice==0?1:glow*0.8f);
+            for(unsigned slice=0;slice<(glow>0 || luminous?2u:1u);++slice) {
+                auto color=rainbow(p.hue,slice==0?0.9f:0.25f);
+                const bool head=luminous && p.strength==1 && slice==1;
+                if(head) { const float white=0.75f*std::min(1.0f,luminous); color.r=color.r*(1-white)+white; color.g=color.g*(1-white)+white; color.b=color.b*(1-white)+white; }
+                const float opacity=head?p.strength*glow*0.8f*(1-std::min(1.0f,luminous))+0.9f*std::min(1.0f,luminous):p.strength*(slice==0?1:glow*0.8f);
                 sprites[count++]={{x-pad,y-pad,float(pointTile),float(pointTile)},
                     {p.x-x,opacity,p.y-y,float(slice)},{color.r,color.g,color.b,1}};
             }
@@ -225,7 +227,7 @@ public:
         D3D11_MAPPED_SUBRESOURCE mapped{};
         if(FAILED(context->Map(instances.Get(),0,D3D11_MAP_WRITE_DISCARD,0,&mapped))) return false;
         std::memcpy(mapped.pData,sprites.data(),count*sizeof(Instance)); context->Unmap(instances.Get(),0);
-        const float values[8]={float(width),float(height),float(pointTile),float(haloTile),float(haloTile*16),float(haloTile*16),float(phaseSteps),0};
+        const float values[8]={float(width),float(height),float(pointTile),float(haloTile),float(haloTile*16),float(haloTile*16),float(phaseSteps),std::clamp(luminous,0.0f,2.0f)};
         if(FAILED(context->Map(constants.Get(),0,D3D11_MAP_WRITE_DISCARD,0,&mapped))) return false;
         std::memcpy(mapped.pData,values,sizeof values); context->Unmap(constants.Get(),0);
         auto rtv=view.Get(); context->OMSetRenderTargets(1,&rtv,nullptr);
@@ -296,7 +298,7 @@ float4 pointMain(Output input):SV_Target {
     float c=pointImage.Load(int3((base+uint2(0,1))*tile+pixel,0)).a;
     float d=pointImage.Load(int3((base+uint2(1,1))*tile+pixel,0)).a;
     float alpha=lerp(lerp(a,b,blend.x),lerp(c,d,blend.x),blend.y)*input.params.y;
-    return float4(input.color.rgb*alpha,alpha);
+    return float4(input.color.rgb*alpha*max(1.0,atlas.w),alpha*(1-min(1.0,atlas.w)));
 }
 )hlsl";
 };

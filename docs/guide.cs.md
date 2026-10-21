@@ -52,10 +52,14 @@ Dokud je soubor vybraný jako spořič, nepřesouvejte jej. Novou verzi pak inst
 | Stopa | Určuje, jak dlouhá historie bodů zůstává viditelná. |
 | Barvy | V Retro režimu vybírá černobílou, ECS nebo AGA paletu. Moderní režim používá plynulou RGB duhu. |
 | Záře | V Moderním režimu nastavuje světlo kolem bodů od 0 do 100 %. Při nule zůstávají jemné body bez záře. |
+| Svítivost | Svítivost bodů Moderního režimu, 0–100 %: 0 % zachová původní jas bodů, 50 % odpovídá světelným bodům a 100 % dále zesílí světlo. Záře se nastavuje samostatně. Výchozí hodnota: 0 %. Na starší grafice se záložním vykreslováním Direct2D závisí zesvětlení překrytí na podpoře grafického kontextu. |
+| Velikost bodů | Průměr moderních bodů od 0,75× do 2×. Výchozí hodnota 1× zachovává původní vzhled. Velikost měkké záře se nemění. |
 | Zvětšovat retro obrazce podle rozlišení | Zvětší obrazce pro dnešní displeje, ale body ponechá ostré. Vypnutím získáte pevnou pixelovou velikost jako na Amize. Zvětšování podle rozlišení přinesl pozdější WinRose. |
 | Pokračovat od posledního obrazce | Při dalším spuštění naváže přibližně na předchozí pozici. Ve výchozím stavu je vypnuté. |
 | Zapomenout uložený obrazec | Po potvrzení tlačítkem Uložit smaže pozici v právě nastavované aplikaci či spořiči. Volbu pokračování nevypíná. |
 | Debug: zobrazovat vytížení procesu | Volitelný technický údaj o CPU; pro běžné používání jej můžete ponechat vypnutý. |
+
+Změny vzhledu se ihned promítají do náhledu, včetně podoby, rychlosti, stopy, barev, záře, svítivosti, velikosti bodů a CPU debugu. **Zrušit** obnoví uloženou konfiguraci; **Uložit** změny zachová. Zapomenutí uloženého obrazce se provede až po uložení.
 
 Pokračování obnovuje obrazec, natočení a barevnou fázi, nikoli uložený obrázek. Stopa se po spuštění znovu dokreslí. Vypnutí pokračování pozici nemaže; k resetu použijte **Zapomenout uložený obrazec → Uložit**. Změna vzhledu může animaci restartovat.
 

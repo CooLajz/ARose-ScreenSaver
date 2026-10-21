@@ -53,9 +53,9 @@ void chooseLanguage() {
     }
 }
 void loadSettings() {
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro"};
-    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU, &settings.resumeFigure, &settings.scaleRetro};
-    for (int i = 0; i < 8; ++i) {
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro", L"LuminousIntensity", L"PointScalePercent"};
+    int* values[] = {&settings.appearance, &settings.speed, &settings.tail, &settings.palette, &settings.glow, &settings.debugCPU, &settings.resumeFigure, &settings.scaleRetro, &settings.luminousIntensity, &settings.pointScalePercent};
+    for (size_t i = 0; i < std::size(names); ++i) {
         DWORD value = 0, bytes = sizeof value;
         if (RegGetValueW(HKEY_CURRENT_USER, settingsKey, names[i], RRF_RT_REG_DWORD, nullptr, &value, &bytes) == ERROR_SUCCESS && value <= INT_MAX)
             *values[i] = static_cast<int>(value);
@@ -65,10 +65,10 @@ void loadSettings() {
 bool saveSettings(const Settings& s) {
     HKEY key = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, settingsKey, 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) return false;
-    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro"};
-    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU, s.resumeFigure, s.scaleRetro};
+    const wchar_t* names[] = {L"Appearance", L"Speed", L"Trail", L"Palette", L"Glow", L"DebugCPU", L"ResumeFigure", L"ScaleRetro", L"LuminousIntensity", L"PointScalePercent"};
+    const int values[] = {s.appearance, s.speed, s.tail, s.palette, s.glow, s.debugCPU, s.resumeFigure, s.scaleRetro, s.luminousIntensity, s.pointScalePercent};
     bool success = true;
-    for (int i = 0; i < 8; ++i) {
+    for (size_t i = 0; i < std::size(names); ++i) {
         DWORD v = static_cast<DWORD>(values[i]);
         success = (RegSetValueExW(key, names[i], 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof v) == ERROR_SUCCESS) && success;
     }
@@ -141,21 +141,47 @@ void updateDialog(HWND d) {
     EnableWindow(GetDlgItem(d, IDC_SCALE_RETRO), !modern);
     EnableWindow(GetDlgItem(d, IDC_PALETTE), !modern);
     EnableWindow(GetDlgItem(d, IDC_GLOW), modern);
+    EnableWindow(GetDlgItem(d, IDC_POINT_SIZE), modern);
+    EnableWindow(GetDlgItem(d, IDC_POINT_SIZE_VALUE), modern);
+    wchar_t pointSizeText[32]{};
+    swprintf_s(pointSizeText,L"%.2f×",static_cast<double>(SendDlgItemMessageW(d,IDC_POINT_SIZE,TBM_GETPOS,0,0))/100);
+    SetDlgItemTextW(d,IDC_POINT_SIZE_VALUE,pointSizeText);
+    EnableWindow(GetDlgItem(d, IDC_LUMINOUS), modern);
+    EnableWindow(GetDlgItem(d, IDC_LUMINOUS_VALUE), modern);
+    SetDlgItemTextW(d,IDC_LUMINOUS_VALUE,(std::to_wstring(SendDlgItemMessageW(d,IDC_LUMINOUS,TBM_GETPOS,0,0))+L" %").c_str());
     EnableWindow(GetDlgItem(d, IDC_PERCENT), modern);
     auto value = SendDlgItemMessageW(d, IDC_GLOW, TBM_GETPOS, 0, 0);
     SetDlgItemTextW(d, IDC_PERCENT, (std::to_wstring(value) + L" %").c_str());
 }
+void previewSettings(const Settings& values);
+void previewTick();
+Settings dialogSettings(HWND d) {
+    constexpr int lengths[] = {1,4,8,12,16,20};
+    Settings value=settings;
+    value.appearance=selection(d,IDC_STYLE); value.speed=selection(d,IDC_SPEED)+1;
+    value.tail=lengths[std::clamp(selection(d,IDC_TRAIL),0,5)];
+    value.palette=selection(d,IDC_PALETTE);
+    value.glow=static_cast<int>(SendDlgItemMessageW(d,IDC_GLOW,TBM_GETPOS,0,0));
+    value.luminousIntensity=static_cast<int>(SendDlgItemMessageW(d,IDC_LUMINOUS,TBM_GETPOS,0,0));
+    value.pointScalePercent=static_cast<int>(SendDlgItemMessageW(d,IDC_POINT_SIZE,TBM_GETPOS,0,0));
+    value.scaleRetro=IsDlgButtonChecked(d,IDC_SCALE_RETRO)==BST_CHECKED;
+    value.debugCPU=IsDlgButtonChecked(d,IDC_DEBUG_CPU)==BST_CHECKED;
+    value.resumeFigure=IsDlgButtonChecked(d,IDC_RESUME_FIGURE)==BST_CHECKED;
+    value.validate(); return value;
+}
 INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     static bool forgetPending=false;
+    static bool loading=false;
     constexpr int lengths[] = {1, 4, 8, 12, 16, 20};
     if (msg == WM_INITDIALOG) {
+        loading=true;
         forgetPending=false;
         SetDlgItemTextW(d,IDC_UPDATES,tr(L"Installation and updates…",L"Instalace a aktualizace…"));
         SetDlgItemTextW(d,IDC_FORGET_FIGURE,tr(L"Forget saved figure",L"Zapomenout uložený obrazec"));
         SetWindowTextW(d, tr(L"ARose Settings", L"Nastavení ARose"));
         const int ids[] = {IDC_STYLE_LABEL,IDC_SPEED_LABEL,IDC_TRAIL_LABEL,IDC_PALETTE_LABEL,IDC_GLOW_LABEL,IDC_NOTE,IDOK,IDCANCEL};
-        const wchar_t* en[] = {L"Style",L"Speed",L"Trail",L"Colors",L"Glow",L"Glow is available in Modern mode. Modern colors use a smooth rainbow.",L"Save",L"Cancel"};
-        const wchar_t* cs[] = {L"Podoba",L"Rychlost",L"Stopa",L"Barvy",L"Záře",L"Záře je dostupná v moderním režimu. Moderní barvy používají plynulou duhu.",L"Uložit",L"Zrušit"};
+        const wchar_t* en[] = {L"Style",L"Speed",L"Trail",L"Colors",L"Glow",L"Modern mode: glow controls halos; point light: 0% original, 50% luminous, 100% brighter.",L"Save",L"Cancel"};
+        const wchar_t* cs[] = {L"Podoba",L"Rychlost",L"Stopa",L"Barvy",L"Záře",L"Moderní režim: záře kolem bodů; svítivost: 0 % původní, 50 % světelné body, 100 % silnější světlo.",L"Uložit",L"Zrušit"};
         for (int i=0;i<8;++i) SetDlgItemTextW(d,ids[i],tr(en[i],cs[i]));
         auto add = [d](int id, const wchar_t* e, const wchar_t* c) { SendDlgItemMessageW(d,id,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(tr(e,c))); };
         add(IDC_STYLE,L"Original Amiga",L"Originální Amiga"); add(IDC_STYLE,L"Modern",L"Moderní");
@@ -174,17 +200,32 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         SendDlgItemMessageW(d,IDC_GLOW,TBM_SETRANGE,TRUE,MAKELPARAM(0,100));
         SendDlgItemMessageW(d,IDC_GLOW,TBM_SETPOS,TRUE,settings.glow);
         SetDlgItemTextW(d,IDC_DEBUG_CPU,tr(L"Debug: show process CPU usage",L"Debug: zobrazovat vytížení procesu"));
+        SetDlgItemTextW(d,IDC_POINT_SIZE_LABEL,tr(L"Point size",L"Velikost bodů"));
+        SendDlgItemMessageW(d,IDC_POINT_SIZE,TBM_SETRANGE,TRUE,MAKELPARAM(75,200));
+        SendDlgItemMessageW(d,IDC_POINT_SIZE,TBM_SETPOS,TRUE,settings.pointScalePercent);
+        SetDlgItemTextW(d,IDC_LUMINOUS_LABEL,tr(L"Point light",L"Svítivost"));
+        SendDlgItemMessageW(d,IDC_LUMINOUS,TBM_SETRANGE,TRUE,MAKELPARAM(0,100));
+        SendDlgItemMessageW(d,IDC_LUMINOUS,TBM_SETPOS,TRUE,settings.luminousIntensity);
         CheckDlgButton(d,IDC_DEBUG_CPU,settings.debugCPU?BST_CHECKED:BST_UNCHECKED);
         SetDlgItemTextW(d,IDC_RESUME_FIGURE,tr(L"Resume from last figure",L"Pokračovat od posledního obrazce"));
         SetDlgItemTextW(d,IDC_SCALE_RETRO,tr(L"Scale retro figures to display resolution",L"Zvětšovat retro obrazce podle rozlišení"));
         SetDlgItemTextW(d,IDC_SCALE_NOTE,tr(L"Enlarges retro figures according to display resolution. The Amiga kept a fixed size; the later WinRose introduced resolution-based scaling. Disable to keep the original size.",L"Zvětší retro obrazce podle rozlišení displeje. Amiga zachovávala pevnou velikost; novější WinRose přidal zvětšování podle rozlišení. Vypnutím zachováte původní velikost."));
         CheckDlgButton(d,IDC_SCALE_RETRO,settings.scaleRetro?BST_CHECKED:BST_UNCHECKED);
         CheckDlgButton(d,IDC_RESUME_FIGURE,settings.resumeFigure?BST_CHECKED:BST_UNCHECKED);
-        updateDialog(d); return TRUE;
+        updateDialog(d); loading=false;
+        if(engine && !windows.empty()) { lastStep=AnimationClock::now(); SetTimer(d,1,16,nullptr); }
+        return TRUE;
     }
-    if(msg==WM_HSCROLL) { updateDialog(d); return TRUE; }
+    if(msg==WM_DESTROY) { KillTimer(d,1); return TRUE; }
+    if(msg==WM_TIMER && wp==1) { previewTick(); return TRUE; }
+    if(msg==WM_HSCROLL) {
+        updateDialog(d); if(!loading) previewSettings(dialogSettings(d)); return TRUE;
+    }
     if(msg==WM_COMMAND) {
-        if(LOWORD(wp)==IDC_STYLE && HIWORD(wp)==CBN_SELCHANGE) { updateDialog(d); return TRUE; }
+        const int control=LOWORD(wp), event=HIWORD(wp);
+        const bool combo=(control==IDC_STYLE || control==IDC_SPEED || control==IDC_TRAIL || control==IDC_PALETTE) && event==CBN_SELCHANGE;
+        const bool check=(control==IDC_DEBUG_CPU || control==IDC_SCALE_RETRO || control==IDC_RESUME_FIGURE) && event==BN_CLICKED;
+        if((combo || check) && !loading) { updateDialog(d); previewSettings(dialogSettings(d)); return TRUE; }
         if(LOWORD(wp)==IDC_UPDATES) {
             wchar_t module[32768]{};
             GetModuleFileNameW(nullptr,module,32768);
@@ -207,6 +248,8 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
         if(LOWORD(wp)==IDCANCEL) { EndDialog(d,IDCANCEL); return TRUE; }
         if(LOWORD(wp)==IDOK) {
             Settings s = settings;
+            s.pointScalePercent=static_cast<int>(SendDlgItemMessageW(d,IDC_POINT_SIZE,TBM_GETPOS,0,0));
+            s.luminousIntensity=static_cast<int>(SendDlgItemMessageW(d,IDC_LUMINOUS,TBM_GETPOS,0,0));
             s.scaleRetro=IsDlgButtonChecked(d,IDC_SCALE_RETRO)==BST_CHECKED?1:0;
             s.resumeFigure=IsDlgButtonChecked(d,IDC_RESUME_FIGURE)==BST_CHECKED?1:0;
             s.debugCPU=IsDlgButtonChecked(d,IDC_DEBUG_CPU)==BST_CHECKED?1:0;
@@ -220,9 +263,12 @@ INT_PTR CALLBACK settingsProc(HWND d, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 bool showSettings(HWND parent) {
+    const auto original=settings;
     const auto result=DialogBoxParamW(instance,MAKEINTRESOURCEW(IDD_SETTINGS),parent,settingsProc,0);
     if(result==-1)
         MessageBoxW(parent,tr(L"Unable to open ARose settings.",L"Nastavení ARose se nepodařilo otevřít."),L"ARose",MB_OK|MB_ICONERROR);
+    if(result!=IDOK) previewSettings(original);
+    lastStep=AnimationClock::now();
     return result==IDOK;
 }
 struct Renderer {
@@ -292,7 +338,7 @@ struct Renderer {
             RECT rect{}; GetClientRect(w,&rect);
             UINT width=static_cast<UINT>(std::max(1L,rect.right)),height=static_cast<UINT>(std::max(1L,rect.bottom));
             float diameter=ModernDrawing::diameter(float(width),float(height),static_cast<float>(GetDpiForWindow(w))/96);
-            if(gpu->prepare(w,width,height,diameter,static_cast<float>(settings.glow)/100)) return true;
+            if(gpu->prepare(w,width,height,diameter,static_cast<float>(settings.glow)/100,static_cast<float>(settings.pointScalePercent)/100)) return true;
             gpu.reset(); gpuFailed=true;
             if(benchmark.enabled && forceGpuRenderer) return false;
         }
@@ -335,7 +381,7 @@ struct Renderer {
             bool success;
             {
                 BenchmarkSample sample(benchmark.enabled?&benchmark.submit:nullptr);
-                success=gpu->draw(prepared,static_cast<float>(settings.glow)/100);
+                success=gpu->draw(prepared,static_cast<float>(settings.glow)/100,static_cast<float>(settings.luminousIntensity)/50);
                 if(success && settings.debugCPU) {
                     auto surface=gpu->beginOverlay();
                     if(surface) { drawCPU(w,surface,gpu->overlayBrush(),L"Direct3D 11 GPU"); success=gpu->endOverlay(); }
@@ -389,7 +435,7 @@ struct Renderer {
                 prepared.prepare(engine->modernHistory, previousHistory, frameTiming.alpha(), size.width, size.height);
             }
             BenchmarkSample submission(benchmark.enabled?&benchmark.submit:nullptr);
-            modern.draw(target,brush,prepared,diameter,glow,!referenceRenderer);
+            modern.draw(target,brush,prepared,diameter,glow,!referenceRenderer,static_cast<float>(settings.luminousIntensity)/50,static_cast<float>(settings.pointScalePercent)/100);
             if(benchmark.enabled) {
                 benchmark.drawing=referenceRenderer?"reference":"cached-halo"; benchmark.gpuBatchUsed=false;
                 benchmark.haloCacheUsed=modern.cached() && !referenceRenderer;
@@ -407,6 +453,37 @@ struct Renderer {
         else ++renderedFrames;
     }
 };
+// The modal dialog owns the message loop, so its timer keeps the live preview moving.
+void previewSettings(const Settings& values) {
+    const bool structural=settings.appearance!=values.appearance || settings.palette!=values.palette ||
+        settings.scaleRetro!=values.scaleRetro || (values.appearance==0 && settings.tail!=values.tail);
+    settings=values;
+    if(!engine) return;
+    if(structural) {
+        const auto figure=engine->savedFigure(); resetEngine(); engine->restoreFigure(figure); engine->step();
+    } else {
+        engine->settings=settings;
+        while(engine->modernHistory.size()>static_cast<size_t>(settings.tail)) engine->modernHistory.pop_front();
+    }
+    for(HWND w:windows) {
+        auto renderer=reinterpret_cast<Renderer*>(GetWindowLongPtrW(w,GWLP_USERDATA));
+        if(renderer && renderer->retroEngine) renderer->retroEngine->settings=settings;
+        InvalidateRect(w,nullptr,FALSE); UpdateWindow(w);
+    }
+}
+void previewTick() {
+    if(!engine) return;
+    const auto now=AnimationClock::now();
+    const auto elapsed=std::chrono::duration<double>(now-lastStep).count(); lastStep=now;
+    if(!paused) for(int count=frameTiming.advance(elapsed); count>0; --count) {
+        previousHistory=engine->modernHistory; engine->step();
+        if(settings.appearance==0) for(HWND w:windows) {
+            auto renderer=reinterpret_cast<Renderer*>(GetWindowLongPtrW(w,GWLP_USERDATA));
+            if(renderer && renderer->retroEngine) renderer->retroEngine->step();
+        }
+    }
+    for(HWND w:windows) { InvalidateRect(w,nullptr,FALSE); UpdateWindow(w); }
+}
 LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
     auto renderer=reinterpret_cast<Renderer*>(GetWindowLongPtrW(w,GWLP_USERDATA));
     switch(msg) {
@@ -423,14 +500,7 @@ LRESULT CALLBACK windowProc(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
         if(preview) return 0;
         if(windowed) {
             if(wp==VK_F1 && !benchmark.enabled && !(lp & (1LL<<30))) {
-                const bool wasPaused=paused;
-                paused=true;
-                const auto state=engine->savedFigure();
-                if(showSettings(w)) {
-                    resetEngine();
-                    if(!adoptFigureReset() && settings.resumeFigure) engine->restoreFigure(state);
-                }
-                paused=wasPaused;
+                if(showSettings(w)) adoptFigureReset();
                 lastStep=AnimationClock::now();
             }
             if(wp==VK_SPACE) { paused=!paused; lastStep=AnimationClock::now(); }

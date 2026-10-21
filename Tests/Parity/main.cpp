@@ -82,9 +82,9 @@ int main(int argc,char**) {
         }
         std::cout<<"PASS: 50 Hz timing at 60/120/144 Hz, smooth interpolation and stall recovery\n";
         Settings defaults;
-        if(defaults.appearance!=1 || defaults.glow!=80 || defaults.tail!=16) return 1;
-        Settings invalid; invalid.appearance=8; invalid.speed=-1; invalid.tail=19; invalid.palette=99; invalid.glow=200; invalid.validate();
-        if(invalid.appearance!=1 || invalid.speed!=1 || invalid.tail!=16 || invalid.palette!=2 || invalid.glow!=100) return 2;
+        if(defaults.appearance!=1 || defaults.glow!=80 || defaults.tail!=16 || defaults.pointScalePercent!=100 || defaults.luminousIntensity!=0) return 1;
+        Settings invalid; invalid.appearance=8; invalid.speed=-1; invalid.tail=19; invalid.palette=99; invalid.glow=200; invalid.pointScalePercent=300; invalid.luminousIntensity=200; invalid.validate();
+        if(invalid.appearance!=1 || invalid.speed!=1 || invalid.tail!=16 || invalid.palette!=2 || invalid.glow!=100 || invalid.pointScalePercent!=200 || invalid.luminousIntensity!=100) return 2;
         for(int palette=0;palette<3;++palette) {
             Engine e; e.settings.appearance=0; e.settings.palette=palette;
             for(int f=0;f<200000;++f) e.step();

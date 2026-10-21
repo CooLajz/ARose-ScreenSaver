@@ -16,11 +16,22 @@ do {
     saver.register(defaults: ARoseView.initialSettings)
     app.set(0.25, forKey: "glow")
     saver.set(0.9, forKey: "glow")
+    app.set(1.65, forKey: "pointScale"); app.set(56, forKey: "luminousIntensity")
+    saver.set(0.85, forKey: "pointScale"); saver.set(23, forKey: "luminousIntensity")
     let options = RoseOptions(defaults: app) {}
     options.reload()
+    options.contentViewController.view.layoutSubtreeIfNeeded()
+    let stack = options.contentViewController.view.subviews.first as! NSStackView
+    precondition(stack.fittingSize.height + 48 <= options.contentViewController.preferredContentSize.height,
+                 "Settings controls exceed content height: \(stack.fittingSize.height)")
     options.perform(NSSelectorFromString("saveAction"))
     precondition(abs(app.double(forKey: "glow") - 0.25) < 0.000001, "App glow: \(app.double(forKey: "glow"))")
     precondition(saver.double(forKey: "glow") == 0.9)
+    precondition(app.double(forKey: "pointScale") == 1.65 && app.integer(forKey: "luminousIntensity") == 56)
+    precondition(saver.double(forKey: "pointScale") == 0.85 && saver.integer(forKey: "luminousIntensity") == 23)
+    let view = ARoseView(frame: NSRect(x: 0, y: 0, width: 640, height: 480), isPreview: true, settings: app)!
+    precondition(view.pointScale == 1.65 && abs(view.luminousIntensity - 5.6) < 0.000001,
+                 "The 0–100 scale must preserve the former 0–10 rendering")
 }
 print("OK: companion settings save independently from screen saver settings.")
 
@@ -29,6 +40,8 @@ fresh.register(defaults: ARoseView.initialSettings)
 precondition(fresh.integer(forKey: "appearance") == 1)
 precondition(fresh.integer(forKey: "tail") == 16)
 precondition(fresh.double(forKey: "glow") == 0.8)
+precondition(fresh.double(forKey: "luminousIntensity") == 0)
+precondition(fresh.double(forKey: "pointScale") == 1)
 // Existing user choices take precedence over registration defaults.
 fresh.setVolatileDomain(["appearance": 0, "tail": 4, "glow": 0.2], forName: UserDefaults.argumentDomain)
 fresh.register(defaults: ARoseView.initialSettings)
@@ -347,3 +360,52 @@ envelope.setPaused(true, duration: 2, at: 20)
 envelope.setPaused(false, duration: 2, at: 200)
 precondition(envelope.rate(at: 200) == 0 && envelope.rate(at: 201) == 0.5 && envelope.rate(at: 202) == 1)
 print("OK: wallpaper brakes and accelerates over 2 seconds at 30/60/120/144 Hz; launch, reversal and wake remain continuous.")
+
+// All visual controls preview in memory; only Save may change persistent preferences.
+do {
+    let name = "cz.coolajz.ARose.live-settings.\(UUID().uuidString)"
+    let prefs = UserDefaults(suiteName: name)!
+    defer { prefs.removePersistentDomain(forName: name) }
+    let view = ARoseView(frame: NSRect(x: 0, y: 0, width: 640, height: 480), isPreview: true, settings: prefs)!
+    for _ in 0..<100 { view.engine.step() }
+    let originalFigure = view.engine.savedFigure()
+    let originalEngine = view.engine
+    let options = RoseOptions(defaults: prefs) {}
+    options.reload()
+    func descendants(_ view: NSView) -> [NSView] { view.subviews.flatMap { [$0] + descendants($0) } }
+    let controls = descendants(options.contentViewController.view)
+    let sliders = controls.compactMap { $0 as? NSSlider }
+    let popups = controls.compactMap { $0 as? NSPopUpButton }
+    let debug = controls.compactMap { $0 as? NSButton }.first { $0.title.hasPrefix("Debug:") }!
+    precondition(sliders.count == 3 && popups.count == 4)
+    sliders[0].doubleValue = 35; options.perform(NSSelectorFromString("glowChanged"))
+    sliders[1].doubleValue = 76; options.perform(NSSelectorFromString("luminousChanged"))
+    sliders[2].doubleValue = 1.8; options.perform(NSSelectorFromString("pointSizeChanged"))
+    precondition(view.glow == 0.35 && view.luminousIntensity == 7.6 && view.pointScale == 1.8)
+    precondition(view.engine === originalEngine && view.engine.savedFigure() == originalFigure,
+                 "Rendering sliders must not restart or advance the figure")
+    debug.state = .on; options.perform(NSSelectorFromString("previewChanged"))
+    precondition(view.debugCPU && !prefs.bool(forKey: "debugCPU"))
+    popups[1].selectItem(at: 4); popups[2].selectItem(at: 1)
+    options.perform(NSSelectorFromString("previewChanged"))
+    precondition(view.engine.speed == 5 && view.engine.tail == 4 && view.engine.modernHistory.count == 4)
+    precondition(prefs.integer(forKey: "speed") == 3 && prefs.integer(forKey: "tail") == 16)
+    precondition(prefs.double(forKey: "glow") == 0.8 && prefs.double(forKey: "luminousIntensity") == 0 && prefs.double(forKey: "pointScale") == 1)
+    options.perform(NSSelectorFromString("cancelAction"))
+    precondition(view.glow == 0.8 && view.luminousIntensity == 0 && view.pointScale == 1)
+    precondition(view.engine.speed == 3 && view.engine.tail == 16 && !view.debugCPU)
+    options.reload()
+    popups[0].selectItem(at: 0); options.perform(NSSelectorFromString("appearanceChanged"))
+    popups[3].selectItem(at: 1); options.perform(NSSelectorFromString("previewChanged"))
+    precondition(!view.engine.modern && view.engine.paletteMode == 1 && view.engine.frame >= originalFigure[1])
+    options.perform(NSSelectorFromString("cancelAction"))
+    precondition(view.engine.modern && view.engine.paletteMode == 2)
+    options.reload()
+    sliders[0].doubleValue = 45; options.perform(NSSelectorFromString("glowChanged"))
+    sliders[1].doubleValue = 62; options.perform(NSSelectorFromString("luminousChanged"))
+    sliders[2].doubleValue = 1.25; options.perform(NSSelectorFromString("pointSizeChanged"))
+    options.perform(NSSelectorFromString("saveAction"))
+    precondition(prefs.double(forKey: "glow") == 0.45 && prefs.integer(forKey: "luminousIntensity") == 62 && prefs.double(forKey: "pointScale") == 1.25)
+    precondition(view.glow == 0.45 && view.luminousIntensity == 6.2 && view.pointScale == 1.25)
+}
+print("OK: all appearance controls preview immediately; Cancel restores settings; Save persists; sliders preserve the figure.")

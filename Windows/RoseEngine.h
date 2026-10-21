@@ -13,8 +13,10 @@ namespace arose {
 struct Point { int x = 0, y = 0; };
 struct ModernPoint { double x, y, hue; };
 struct Settings {
-    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0, resumeFigure = 0, scaleRetro = 1;
+    int appearance = 1, speed = 3, tail = 16, palette = 2, glow = 80, debugCPU = 0, resumeFigure = 0, scaleRetro = 1, luminousIntensity = 0, pointScalePercent = 100;
     void validate() {
+        pointScalePercent = std::clamp(pointScalePercent, 75, 200);
+        luminousIntensity = std::clamp(luminousIntensity, 0, 100);
         scaleRetro = scaleRetro == 1 ? 1 : 0;
         debugCPU = debugCPU == 1 ? 1 : 0;
         resumeFigure = resumeFigure == 1 ? 1 : 0;

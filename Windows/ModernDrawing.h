@@ -1,5 +1,5 @@
 #pragma once
-#include <d2d1.h>
+#include <d2d1_1.h>
 #include <wrl/client.h>
 #include "PreparedFrame.h"
 
@@ -71,7 +71,7 @@ public:
         return true; // Cache allocation failure keeps the reference renderer.
     }
     void draw(ID2D1RenderTarget* target,ID2D1SolidColorBrush* brush,const PreparedFrame& prepared,
-              float diameter,float glow,bool useAtlas) {
+              float diameter,float glow,bool useAtlas,float luminous=0,float pointScale=1) {
         if(glow>0) {
             const float radius=diameter*(4+12*glow)/2;
             for(size_t i=0;i<prepared.count;++i) {
@@ -89,16 +89,38 @@ public:
                 }
             }
         }
+        const float dotDiameter=diameter*std::clamp(pointScale,0.75f,2.0f);
+        ComPtr<ID2D1DeviceContext> dc;
+        if(luminous) target->QueryInterface(IID_PPV_ARGS(&dc));
+        const auto oldBlend=dc?dc->GetPrimitiveBlend():D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
+        const float addition=std::clamp(luminous,0.0f,1.0f);
+        auto dot=[&](D2D1_COLOR_F color,const D2D1_ELLIPSE& ellipse) {
+            const float alpha=color.a;
+            if(!dc || luminous<=0) {
+                brush->SetColor(color); target->FillEllipse(ellipse,brush);
+                if(luminous>1) { color.a=alpha*(luminous-1); brush->SetColor(color); target->FillEllipse(ellipse,brush); }
+                return;
+            }
+            if(addition<1) {
+                dc->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
+                color.a=alpha*(1-addition); brush->SetColor(color); target->FillEllipse(ellipse,brush);
+            }
+            dc->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_ADD);
+            color.a=alpha*addition; brush->SetColor(color); target->FillEllipse(ellipse,brush);
+            if(luminous>1) { color.a=alpha*(luminous-1); brush->SetColor(color); target->FillEllipse(ellipse,brush); }
+        };
         for(size_t i=0;i<prepared.count;++i) {
             const auto& p=prepared.points[i];
             auto center=D2D1::Point2F(p.x,p.y);
-            brush->SetColor(rainbow(p.hue,0.9f,p.strength));
-            target->FillEllipse(D2D1::Ellipse(center,diameter/2,diameter/2),brush);
-            if(glow>0) {
-                brush->SetColor(rainbow(p.hue,0.25f,p.strength*glow*0.8f));
-                target->FillEllipse(D2D1::Ellipse(center,diameter*0.275f,diameter*0.275f),brush);
+            dot(rainbow(p.hue,0.9f,p.strength),D2D1::Ellipse(center,dotDiameter/2,dotDiameter/2));
+            const bool head=luminous && p.strength==1;
+            if(glow>0 || head) {
+                auto color=rainbow(p.hue,0.25f,head?p.strength*glow*0.8f*(1-addition)+0.9f*addition:p.strength*glow*0.8f);
+                if(head) { const float white=0.75f*addition; color.r=color.r*(1-white)+white; color.g=color.g*(1-white)+white; color.b=color.b*(1-white)+white; }
+                dot(color,D2D1::Ellipse(center,dotDiameter*0.275f,dotDiameter*0.275f));
             }
         }
+        if(luminous && dc) dc->SetPrimitiveBlend(oldBlend);
     }
 };
 }

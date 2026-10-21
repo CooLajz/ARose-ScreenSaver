@@ -6,6 +6,9 @@ import Darwin
 /// Metal renders halos and antialiased points. Core Graphics is used only for
 /// the small optional debug label and reference snapshots. Simulation stays on CPU.
 final class RoseMetalRenderer {
+    var luminousIntensity = 0.0
+    // Scale only the crisp dot atlas; halo geometry keeps its base diameter.
+    var pointScale = 1.0
     let device: MTLDevice
     let surface = CAMetalLayer()
     private let queue: MTLCommandQueue
@@ -247,7 +250,7 @@ final class RoseMetalRenderer {
         if interpolateOnGPU && gpuCount > 0 {
             guard gpuCount <= maximumTrailPoints else { return nil }
             let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600)) * backing
-            guard preparePoints(diameter: diameter) else { return nil }
+            guard preparePoints(diameter: diameter * min(2, max(0.75, pointScale))) else { return nil }
             if slot.endpoints == nil {
                 slot.endpoints = device.makeBuffer(length: maximumTrailPoints * 2 * MemoryLayout<SIMD4<Float>>.stride, options: .storageModeShared)
             }
@@ -276,14 +279,15 @@ final class RoseMetalRenderer {
                 slot.endpointRevision = revision
             }
             var parameters = [SIMD4(Float(width), Float(height), Float(min(size.width, size.height) / 640 * backing), Float(min(1, max(0, alpha)))),
-                              SIMD4(Float(diameter), Float(glow), Float(pointTile), Float(gpuCount))]
+                              SIMD4(Float(diameter), Float(glow), Float(pointTile), Float(gpuCount)),
+                              SIMD4<Float>(Float(min(10, max(0, luminousIntensity)) / 5), 0, 0, 0)]
             guard let compute = command.makeComputeCommandEncoder() else { return nil }
             compute.setComputePipelineState(interpolatePipeline)
             compute.setBuffer(endpoints, offset: 0, index: 0)
             compute.setBuffer(halos, offset: 0, index: 1)
             compute.setBuffer(instances, offset: 0, index: 2)
             compute.setBuffer(rainbowTable, offset: 0, index: 3)
-            compute.setBytes(&parameters, length: 2 * MemoryLayout<SIMD4<Float>>.stride, index: 4)
+            compute.setBytes(&parameters, length: 3 * MemoryLayout<SIMD4<Float>>.stride, index: 4)
             compute.dispatchThreads(MTLSize(width: gpuCount, height: 1, depth: 1),
                                     threadsPerThreadgroup: MTLSize(width: interpolatePipeline.threadExecutionWidth, height: 1, depth: 1))
             compute.endEncoding()
@@ -293,6 +297,8 @@ final class RoseMetalRenderer {
         pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
         pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return nil }
+        var lightIntensity = Float(min(10, max(0, luminousIntensity)) / 5)
+        encoder.setFragmentBytes(&lightIntensity, length: MemoryLayout<Float>.stride, index: 0)
         var viewport = SIMD2<Float>(Float(width), Float(height))
         encoder.setVertexBytes(&viewport, length: MemoryLayout<SIMD2<Float>>.stride, index: 1)
         if interpolateOnGPU && gpuCount > 0 && glow > 0 {
@@ -340,12 +346,12 @@ final class RoseMetalRenderer {
             if gpuCount > 0 {
                 encoder.setFragmentTexture(pointAtlas, index: 0)
                 encoder.setRenderPipelineState(dots); encoder.setVertexBuffer(slot.instances, offset: 0, index: 0)
-                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: gpuCount * (glow > 0 ? 2 : 1))
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: gpuCount * (glow > 0 || luminousIntensity > 0 ? 2 : 1))
             }
         } else {
             let scale = min(size.width, size.height) / 640
             let diameter = max(1 / backing, min(1.8, min(size.width, size.height) / 600)) * backing
-            guard preparePoints(diameter: diameter) else { encoder.endEncoding(); return nil }
+            guard preparePoints(diameter: diameter * min(2, max(0.75, pointScale))) else { encoder.endEncoding(); return nil }
             var points = [Sprite](); points.reserveCapacity(history.count * 192)
             if colors.count > 8192 { colors.removeAll(keepingCapacity: true) }
             for (age, frame) in history.enumerated() {
@@ -368,7 +374,12 @@ final class RoseMetalRenderer {
                                              parameters: SIMD4(x - floor(x), opacity, y - floor(y), slice), color: color))
                     }
                     append(0, pair.0, alpha)
-                    if glow > 0 { append(1, pair.1, alpha * Float(glow * 0.8)) }
+                    let head = luminousIntensity > 0 && age == history.count - 1
+                    let light = Float(min(1, max(0, luminousIntensity / 5)))
+                    if glow > 0 || luminousIntensity > 0 {
+                        let core = head ? pair.1 * (1 - 0.75 * light) + SIMD4<Float>(repeating: 0.75 * light) : pair.1
+                        append(1, core, head ? alpha * Float(glow * 0.8) * (1 - light) + 0.9 * light : alpha * Float(glow * 0.8))
+                    }
                 }
             }
             if !points.isEmpty {
@@ -418,10 +429,15 @@ final class RoseMetalRenderer {
         float2 phase = fract(pixel);
         float4 rect = float4(floor(pixel)-floor(style.z/2),style.z,style.z);
         float lookup = hue * 4096; uint base = uint(floor(lookup)); float t = fract(lookup);
-        uint count = style.y > 0 ? 2 : 1;
+        float light = min(1.0, params[2].x);
+        bool luminous = light > 0;
+        bool head = luminous && b.w == 1.0;
+        uint count = style.y > 0 || luminous ? 2 : 1;
         for (uint slice=0; slice<count; ++slice) {
             float4 color = mix(rainbow[base*2+slice],rainbow[(base+1)*2+slice],t);
-            points[i*count+slice] = Sprite{rect,float4(phase.x,b.w*(slice==0?1:style.y*0.8),phase.y,float(slice)),color};
+            if (head && slice == 1) color = mix(color, float4(1), 0.75 * light);
+            float opacity = slice == 0 ? b.w : (head ? mix(b.w * style.y * 0.8, 0.9, light) : b.w * style.y * 0.8);
+            points[i*count+slice] = Sprite{rect,float4(phase.x,opacity,phase.y,float(slice)),color};
         }
     }
     struct Out { float4 position [[position]]; float2 uv; float4 params [[flat]]; float4 color [[flat]]; float2 extent [[flat]]; };
@@ -441,7 +457,8 @@ final class RoseMetalRenderer {
                      + image.sample(s,in.uv + float2( footprint.x, footprint.y),uint(in.params.x));
         return light * (in.params.y * 0.25);
     }
-    fragment float4 pointFragment(Out in [[stage_in]], texture2d_array<float> coverage [[texture(0)]]) {
+    fragment float4 pointFragment(Out in [[stage_in]], texture2d_array<float> coverage [[texture(0)]],
+                                  constant float &light [[buffer(0)]]) {
         float2 phase = in.params.xz * 32.0;
         uint2 base = uint2(floor(phase)); float2 blend = fract(phase);
         uint2 pixel = uint2(in.uv * in.extent);
@@ -451,7 +468,9 @@ final class RoseMetalRenderer {
         float c = coverage.read((base + uint2(0,1)) * tile + pixel, slice).r;
         float d = coverage.read((base + uint2(1,1)) * tile + pixel, slice).r;
         float alpha = mix(mix(a,b,blend.x), mix(c,d,blend.x), blend.y) * in.params.y;
-        return float4(in.color.rgb * alpha, alpha);
+        // Fade destination attenuation from source-over to additive. Beyond 5/10,
+        // raise emitted light without changing geometry or the halo pass.
+        return float4(in.color.rgb * alpha * max(1.0, light), alpha * (1.0 - min(1.0, light)));
     }
     fragment float4 foreground(Out in [[stage_in]], texture2d<float> image [[texture(0)]]) {
         constexpr sampler s(coord::normalized, address::clamp_to_edge, filter::nearest);

@@ -77,6 +77,12 @@ final class RoseEngine {
         pixels[point.y * rasterWidth + point.x] = color
     }
 
+    // Presentation settings may trim a trail without advancing the simulation.
+    func setTrailLength(_ length: Int) {
+        tail = min(20, max(1, length))
+        if modernHistory.count > tail { modernHistory.removeFirst(modernHistory.count - tail) }
+    }
+
     func step() {
         let length = min(20, max(1, tail))
         slot %= length

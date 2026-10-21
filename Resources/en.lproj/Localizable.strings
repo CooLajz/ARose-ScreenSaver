@@ -113,3 +113,9 @@
 "ARose · Paused for Full Screen" = "ARose · Paused for Full Screen";
 "ARose · Paused for Screen Saver" = "ARose · Paused for Screen Saver";
 "ARose · Paused While Locked" = "ARose · Paused While Locked";
+
+"Luminous points" = "Point light";
+"Bright trail heads and additive light where points overlap. Modern mode only." = "Modern point light: 0% keeps the original brightness, 50% luminous points, 100% brighter light. Glow is adjusted separately.";
+
+"Point size" = "Point size";
+"Point size explanation" = "Modern dot diameter from 0.75× to 2×. 1× preserves the classic size. The soft glow size stays unchanged.";

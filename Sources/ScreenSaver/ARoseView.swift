@@ -98,7 +98,7 @@ struct RosePlaybackEnvelope {
 
 @objc(ARoseView)
 final class ARoseView: ScreenSaverView {
-    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0, "scaleRetro": true]
+    static let initialSettings: [String: Any] = ["speed": 3, "tail": 16, "palette": 2, "appearance": 1, "glow": 0.8, "debugCPU": false, "resumeFigure": false, "figureReset": 0, "scaleRetro": true, "luminousIntensity": 0.0, "pointScale": 1.0]
     private(set) var engine = RoseEngine()
     private var lastTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
@@ -202,12 +202,15 @@ final class ARoseView: ScreenSaverView {
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var retroPalette = [UInt32]()
     private var options: RoseOptions?
+    private static let liveViews = NSHashTable<ARoseView>.weakObjects()
     private var metalRenderer: RoseMetalRenderer?
     private var triedMetal = false
     // Diagnostic escape hatch; no new saved preference or settings schema.
     private let forceCPU = ProcessInfo.processInfo.environment["AROSE_RENDERER"] == "cpu"
+    var luminousIntensity = 0.0
+    var pointScale = 1.0
     var glow = 0.0
-    private var debugCPU = false
+    private(set) var debugCPU = false
     private var cpuMeter = RoseCPUMeter()
     private var cpuTextUpdatedAt = 0.0
     private var cpuTextValue = ""
@@ -248,6 +251,7 @@ final class ARoseView: ScreenSaverView {
         animationTimeInterval = 1.0 / 50.0
         defaults.register(defaults: Self.initialSettings)
         reset()
+        Self.liveViews.add(self)
     }
     required init?(coder: NSCoder) {
         defaults = ScreenSaverDefaults(forModuleWithName: "cz.coolajz.ARose")!
@@ -255,11 +259,12 @@ final class ARoseView: ScreenSaverView {
         animationTimeInterval = 1.0 / 50.0
         defaults.register(defaults: Self.initialSettings)
         reset()
+        Self.liveViews.add(self)
     }
     override var isOpaque: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     private func configuration() -> [Double] {
-        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset", "scaleRetro"].map { defaults.double(forKey: $0) }
+        ["appearance", "speed", "tail", "palette", "glow", "debugCPU", "resumeFigure", "figureReset", "scaleRetro", "luminousIntensity", "pointScale"].map { defaults.double(forKey: $0) }
     }
     override func startAnimation() {
         defaults.synchronize()
@@ -348,6 +353,47 @@ final class ARoseView: ScreenSaverView {
         if !requested { idlePreviewImage = nil }
         needsDisplay = true
     }
+    static func previewConfiguration(_ values: [String: Any]?, defaults: UserDefaults) {
+        for view in liveViews.allObjects where view.defaults === defaults {
+            let stored = Dictionary(uniqueKeysWithValues: initialSettings.map { key, fallback in
+                (key, defaults.object(forKey: key) ?? fallback)
+            })
+            view.applyLiveConfiguration(values ?? stored)
+            if values == nil { view.loadedConfiguration = view.configuration() }
+        }
+    }
+    private func applyLiveConfiguration(_ values: [String: Any]) {
+        func number(_ key: String) -> Double { (values[key] as? NSNumber)?.doubleValue ?? 0 }
+        let modern = number("appearance") == 1
+        let paletteMode = min(2, max(0, Int(number("palette"))))
+        let scaleRetro = number("scaleRetro") != 0
+        let structural = engine.modern != modern || engine.paletteMode != paletteMode || engine.scaleRetro != scaleRetro || (!modern && engine.tail != Int(number("tail")))
+        let figure = structural ? engine.savedFigure() : nil
+        engine.modern = modern; engine.paletteMode = paletteMode; engine.scaleRetro = scaleRetro
+        engine.speed = min(5, max(1, Int(number("speed"))))
+        engine.setTrailLength(Int(number("tail")))
+        glow = min(1, max(0, number("glow")))
+        luminousIntensity = min(100, max(0, number("luminousIntensity"))) / 10
+        pointScale = min(2, max(0.75, number("pointScale")))
+        debugCPU = number("debugCPU") != 0
+        cpuTextUpdatedAt = 0
+        updateRetroRaster()
+        if let figure { engine.restoreFigure(figure); engine.step() }
+        let palette = RoseEngine.palette(mode: paletteMode)
+        retroPalette = (0..<256).map { i in
+            let red = UInt32(palette[i * 3]) << 24
+            let green = UInt32(palette[i * 3 + 1]) << 16
+            let blue = UInt32(palette[i * 3 + 2]) << 8
+            return (red | green | blue | 255).bigEndian
+        }
+        idlePreviewImage = nil
+        modernColors.removeAll(keepingCapacity: true)
+        presentationRevision &+= 1
+        if structural { previousHistory = engine.modernHistory; interpolationEnabled = false }
+        updateDisplayClock()
+        displayAnimationFrame()
+        needsDisplay = true
+    }
     func applyConfiguration() {
         if adoptFigureReset() { refreshPresentation(); return }
         let state = defaults.bool(forKey: "resumeFigure") ? engine.savedFigure() : nil
@@ -388,6 +434,10 @@ final class ARoseView: ScreenSaverView {
         engine = RoseEngine()
         let storedGlow = defaults.double(forKey: "glow")
         glow = storedGlow.isFinite ? min(1, max(0, storedGlow)) : 0
+        let storedSize = defaults.double(forKey: "pointScale")
+        pointScale = storedSize.isFinite ? min(2, max(0.75, storedSize)) : 1
+        let storedLight = defaults.double(forKey: "luminousIntensity")
+        luminousIntensity = storedLight.isFinite ? min(100, max(0, storedLight)) / 10 : 0
         engine.scaleRetro = defaults.bool(forKey: "scaleRetro")
         engine.modern = defaults.integer(forKey: "appearance") == 1
         updateRetroRaster()
@@ -498,6 +548,8 @@ final class ARoseView: ScreenSaverView {
                 renderer.surface.contentsScale = backing
                 renderer.surface.isHidden = false
                 if debugCPU { updateCPUText() }
+                renderer.pointScale = pointScale
+                renderer.luminousIntensity = luminousIntensity
                 if renderer.present(size: bounds.size, backing: backing, history: engine.modernHistory,
                                     glow: glow, previous: interpolationEnabled ? previousHistory : engine.modernHistory,
                                     alpha: interpolationEnabled ? accumulator / 0.02 : 1, revision: presentationRevision, overlay: debugCPU ? { self.drawMetalOverlay(in: $0) } : nil,
@@ -561,6 +613,12 @@ final class ARoseView: ScreenSaverView {
                     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                     colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
               let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+        poster.applyLiveConfiguration([
+            "appearance": engine.modern ? 1 : 0, "speed": engine.speed, "tail": engine.tail,
+            "palette": engine.paletteMode, "scaleRetro": engine.scaleRetro,
+            "glow": glow, "luminousIntensity": luminousIntensity * 10, "pointScale": pointScale,
+            "debugCPU": debugCPU
+        ])
         // Use the shared renderer and current appearance/palette/glow settings.
         // This detached preview never starts a figure session or saves defaults.
         let state = defaults.array(forKey: figureStorageKey) as? [Int]
@@ -643,6 +701,21 @@ final class ARoseView: ScreenSaverView {
             }
             context.restoreGState()
         }
+        let dotDiameter = diameter * min(2, max(0.75, pointScale))
+        let light = min(2, max(0, luminousIntensity / 5))
+        let addition = min(1, light)
+        func fillPoint(_ rect: CGRect, color: CGColor, alpha: Double) {
+            context.setFillColor(color)
+            if addition < 1 {
+                context.setBlendMode(.normal); context.setAlpha(alpha * (1 - addition))
+                context.fillEllipse(in: rect)
+            }
+            if light > 0 {
+                context.setBlendMode(.plusLighter)
+                context.setAlpha(alpha * addition); context.fillEllipse(in: rect)
+                if light > 1 { context.setAlpha(alpha * (light - 1)); context.fillEllipse(in: rect) }
+            }
+        }
         let oldestFrame = engine.frame - history.count
         for key in Array(modernColors.keys) where key < oldestFrame || key >= engine.frame {
             modernColors.removeValue(forKey: key)
@@ -660,17 +733,22 @@ final class ARoseView: ScreenSaverView {
             }
             let alpha = 0.25 + 0.75 * Double(age + 1) / Double(history.count)
             for (index, point) in points.enumerated() {
-                context.setAlpha(alpha)
-                context.setFillColor(colors[index].dot)
                 let x = bounds.midX + point.x * scale
                 let y = bounds.midY + point.y * scale
-                context.fillEllipse(in: CGRect(x: x - diameter / 2, y: y - diameter / 2,
-                                               width: diameter, height: diameter))
-                if glow > 0 {
-                    context.setAlpha(alpha * glow * 0.8)
-                    context.setFillColor(colors[index].core)
-                    let core = diameter * 0.55
-                    context.fillEllipse(in: CGRect(x: x - core / 2, y: y - core / 2, width: core, height: core))
+                fillPoint(CGRect(x: x - dotDiameter / 2, y: y - dotDiameter / 2, width: dotDiameter, height: dotDiameter),
+                          color: colors[index].dot, alpha: alpha)
+                let head = light > 0 && age == history.count - 1
+                if glow > 0 || head {
+                    var color = colors[index].core
+                    if head, let c = NSColor(cgColor: color)?.usingColorSpace(.deviceRGB) {
+                        let white = 0.75 * addition
+                        color = CGColor(red: c.redComponent * (1 - white) + white,
+                            green: c.greenComponent * (1 - white) + white,
+                            blue: c.blueComponent * (1 - white) + white, alpha: 1)
+                    }
+                    let opacity = head ? alpha * glow * 0.8 * (1 - addition) + 0.9 * addition : alpha * glow * 0.8
+                    let core = dotDiameter * 0.55
+                    fillPoint(CGRect(x: x - core / 2, y: y - core / 2, width: core, height: core), color: color, alpha: opacity)
                 }
             }
         }
@@ -700,7 +778,8 @@ final class ARoseView: ScreenSaverView {
             return options.window
         }
         options = RoseOptions(defaults: defaults) { [weak self] in
-            self?.applyConfiguration()
+            guard let self else { return }
+            if self.adoptFigureReset() { self.refreshPresentation() }
         }
         options?.reload()
         configurationLog.notice("Created configuration: content=\(String(describing: self.options?.window.contentView?.frame), privacy: .public)")
@@ -720,6 +799,8 @@ final class RoseOptions: NSObject {
     }()
     private let defaults: UserDefaults
     private let apply: () -> Void
+    private var loading = false
+    private var previewActive = false
     private let speed = NSPopUpButton(), tail = NSPopUpButton(), palette = NSPopUpButton()
     private let appearance = NSPopUpButton()
     private let debugCPU = NSButton(checkboxWithTitle: roseText("Debug: show process CPU usage"), target: nil, action: nil)
@@ -728,6 +809,10 @@ final class RoseOptions: NSObject {
     private var forgetPending = false
     private lazy var forgetButton = NSButton(title: roseText("Forget saved figure"), target: self, action: #selector(forgetAction))
     private var originalPalette = 2
+    private let pointSize = NSSlider(value: 1, minValue: 0.75, maxValue: 2, target: nil, action: nil)
+    private let pointSizeValue = NSTextField(labelWithString: "1.00×")
+    private let luminous = NSSlider(value: 0, minValue: 0, maxValue: 100, target: nil, action: nil)
+    private let luminousValue = NSTextField(labelWithString: "0 %")
     private let glowSlider = NSSlider(value: 0, minValue: 0, maxValue: 100, target: nil, action: nil)
     private let glowValue = NSTextField(labelWithString: roseText("Off"))
     private let paletteTitles = [roseText("Black and white"), roseText("Amiga ECS · 16 colors"), roseText("Amiga AGA · 256 colors")]
@@ -737,13 +822,15 @@ final class RoseOptions: NSObject {
         self.defaults = defaults; self.apply = apply
         super.init()
         // The same controls can be hosted by a local window, legacy sheet or appex.
-        contentViewController.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 680))
-        contentViewController.preferredContentSize = NSSize(width: 460, height: 680)
+        contentViewController.view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 720))
+        contentViewController.preferredContentSize = NSSize(width: 460, height: 720)
         speed.addItems(withTitles: [roseText("Very slow"), roseText("Slow"), roseText("Normal"), roseText("Fast"), roseText("Very fast")])
         tail.addItems(withTitles: [roseText("No trail"), roseText("Short"), roseText("Medium short"), roseText("Medium"), roseText("Long"), roseText("Longest")])
         appearance.addItems(withTitles: [roseText("Original Amiga"), roseText("Modern")])
         appearance.target = self; appearance.action = #selector(appearanceChanged)
         palette.addItems(withTitles: paletteTitles)
+        for control in [speed, tail, palette] { control.target = self; control.action = #selector(previewChanged) }
+        for control in [debugCPU, scaleRetro, resumeFigure] { control.target = self; control.action = #selector(previewChanged) }
         let title = NSTextField(labelWithString: roseText("ARose · two styles"))
         title.font = .boldSystemFont(ofSize: 20)
         let subtitle = NSTextField(wrappingLabelWithString: roseText("Choose the original Amiga pixel graphics or fine dots at your display resolution with a smooth RGB rainbow."))
@@ -764,6 +851,24 @@ final class RoseOptions: NSObject {
         glowSlider.toolTip = roseText("Adjust the intensity of the colored glow. Zero keeps the dots crisp without glow.")
         glowValue.widthAnchor.constraint(equalToConstant: 72).isActive = true
         stack.addArrangedSubview(NSStackView(views: [glowLabel, glowSlider, glowValue]))
+        luminous.toolTip = roseText("Bright trail heads and additive light where points overlap. Modern mode only.")
+        luminous.widthAnchor.constraint(equalToConstant: 190).isActive = true
+        luminous.isContinuous = true
+        luminous.target = self; luminous.action = #selector(luminousChanged)
+        luminous.setAccessibilityLabel(roseText("Luminous points"))
+        luminousValue.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        let lightLabel = NSTextField(labelWithString: roseText("Luminous points"))
+        lightLabel.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        stack.addArrangedSubview(NSStackView(views: [lightLabel, luminous, luminousValue]))
+        pointSize.widthAnchor.constraint(equalToConstant: 190).isActive = true
+        pointSize.isContinuous = true
+        pointSize.target = self; pointSize.action = #selector(pointSizeChanged)
+        pointSize.setAccessibilityLabel(roseText("Point size"))
+        pointSize.toolTip = roseText("Point size explanation")
+        pointSizeValue.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        let sizeLabel = NSTextField(labelWithString: roseText("Point size"))
+        sizeLabel.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        stack.addArrangedSubview(NSStackView(views: [sizeLabel, pointSize, pointSizeValue]))
         debugCPU.toolTip = roseText("CPU normalization explanation")
         stack.addArrangedSubview(scaleRetro)
         let scaleNote = NSTextField(wrappingLabelWithString: roseText("Retro scaling explanation"))
@@ -786,6 +891,9 @@ final class RoseOptions: NSObject {
             stack.topAnchor.constraint(equalTo: contentViewController.view.topAnchor, constant: 24)])
     }
     func reload() {
+        cancelPreview()
+        loading = true
+        defer { loading = false }
         forgetPending = false
         forgetButton.title = roseText("Forget saved figure")
         defaults.synchronize()
@@ -795,6 +903,12 @@ final class RoseOptions: NSObject {
         appearance.selectItem(at: defaults.integer(forKey: "appearance") == 1 ? 1 : 0)
         let storedGlow = defaults.double(forKey: "glow")
         glowSlider.doubleValue = storedGlow.isFinite ? min(100, max(0, storedGlow * 100)) : 0
+        let storedLight = defaults.double(forKey: "luminousIntensity")
+        luminous.doubleValue = storedLight.isFinite ? min(100, max(0, storedLight)) : 0
+        luminousChanged()
+        let storedSize = defaults.double(forKey: "pointScale")
+        pointSize.doubleValue = storedSize.isFinite ? min(2, max(0.75, storedSize)) : 1
+        pointSizeChanged()
         scaleRetro.state = defaults.bool(forKey: "scaleRetro") ? .on : .off
         resumeFigure.state = defaults.bool(forKey: "resumeFigure") ? .on : .off
         debugCPU.state = defaults.bool(forKey: "debugCPU") ? .on : .off
@@ -820,6 +934,7 @@ final class RoseOptions: NSObject {
         // re-register its extension even if our app never calls pluginkit -a.
         // Complete the remote sheet before that can invalidate its connection.
         // This is a navigation action, not Save: pending edits stay uncommitted.
+        cancelPreview()
         dismissHandler?()
         NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
             guard let error else { return }
@@ -833,12 +948,43 @@ final class RoseOptions: NSObject {
             }
         }
     }
+    func cancelPreview() {
+        guard previewActive else { return }
+        previewActive = false
+        ARoseView.previewConfiguration(nil, defaults: defaults)
+    }
+    @objc private func previewChanged() {
+        guard !loading else { return }
+        previewActive = true
+        ARoseView.previewConfiguration([
+            "appearance": appearance.indexOfSelectedItem,
+            "speed": speed.indexOfSelectedItem + 1,
+            "tail": tailValues[tail.indexOfSelectedItem],
+            "palette": appearance.indexOfSelectedItem == 1 ? originalPalette : max(0, palette.indexOfSelectedItem),
+            "glow": glowSlider.doubleValue / 100,
+            "luminousIntensity": luminous.integerValue,
+            "pointScale": pointSize.doubleValue,
+            "scaleRetro": scaleRetro.state == .on,
+            "debugCPU": debugCPU.state == .on,
+            "resumeFigure": resumeFigure.state == .on
+        ], defaults: defaults)
+    }
+    @objc private func pointSizeChanged() {
+        pointSizeValue.stringValue = String(format: "%.2f×", pointSize.doubleValue)
+        previewChanged()
+    }
+    @objc private func luminousChanged() {
+        luminousValue.stringValue = "\(luminous.integerValue) %"
+        previewChanged()
+    }
     @objc private func glowChanged() {
         glowValue.stringValue = glowSlider.integerValue == 0 ? roseText("Off") : "\(glowSlider.integerValue) %"
+        previewChanged()
     }
     @objc private func appearanceChanged() {
         if palette.isEnabled { originalPalette = max(0, palette.indexOfSelectedItem) }
         updatePalette()
+        previewChanged()
     }
     private func updatePalette() {
         palette.removeAllItems()
@@ -847,6 +993,10 @@ final class RoseOptions: NSObject {
         palette.selectItem(at: modern ? 0 : originalPalette)
         scaleRetro.isEnabled = !modern
         palette.isEnabled = !modern
+        pointSize.isEnabled = modern
+        pointSizeValue.textColor = modern ? .labelColor : .disabledControlTextColor
+        luminous.isEnabled = modern
+        luminousValue.textColor = modern ? .labelColor : .disabledControlTextColor
         glowSlider.isEnabled = modern
         glowValue.textColor = modern ? .labelColor : .disabledControlTextColor
     }
@@ -861,6 +1011,7 @@ final class RoseOptions: NSObject {
         }
     }
     @objc private func cancelAction() {
+        cancelPreview()
         configurationLog.notice("Configuration cancelled")
         dismiss()
     }
@@ -874,6 +1025,8 @@ final class RoseOptions: NSObject {
             defaults.removeObject(forKey: "figureState.v1")
             defaults.removeObject(forKey: "previewFigureState.v1")
         }
+        defaults.set(pointSize.doubleValue, forKey: "pointScale")
+        defaults.set(luminous.integerValue, forKey: "luminousIntensity")
         defaults.set(scaleRetro.state == .on, forKey: "scaleRetro")
         defaults.set(resumeFigure.state == .on, forKey: "resumeFigure")
         defaults.set(debugCPU.state == .on, forKey: "debugCPU")
@@ -883,6 +1036,8 @@ final class RoseOptions: NSObject {
         defaults.set(appearance.indexOfSelectedItem == 1 ? originalPalette : palette.indexOfSelectedItem, forKey: "palette")
         defaults.set(glowSlider.doubleValue / 100, forKey: "glow")
         defaults.synchronize()
+        ARoseView.previewConfiguration(nil, defaults: defaults)
+        previewActive = false
         configurationLog.notice("Configuration saved")
         apply(); dismiss()
     }

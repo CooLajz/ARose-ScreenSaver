@@ -58,6 +58,11 @@ final class ARoseConfigurationViewController: ScreenSaverConfigurationViewContro
         options?.reload()
     }
 
+    override func viewWillDisappear() {
+        options?.cancelPreview()
+        super.viewWillDisappear()
+    }
+
     override func configureSheetWillPresent() {
         super.configureSheetWillPresent()
         options?.reload()

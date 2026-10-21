@@ -163,3 +163,81 @@ precondition(overlayPaints == 3, "Resize must repaint even when cropped texture 
 _ = gpu.snapshot(size: labelSize, backing: 2, history: [], glow: 0, overlay: cachedLabel, overlayKey: "second")
 precondition(overlayPaints == 4, "Backing-scale change must repaint")
 print("OK: overlay reuse preserves pixels; value, bounds and backing changes invalidate the cache.")
+
+// Exercise the effect without glow: heads and crossings must work independently
+// of halo intensity, and turning it off must restore the exact original output.
+let lightSize = CGSize(width: 640, height: 480)
+let lightHistory: [[RoseEngine.ModernPoint]] = [
+    [.init(x: -100, y: 0, hue: 0), .init(x: -100, y: 0, hue: 0.66)],
+    [.init(x: 100, y: 0, hue: 0)]
+]
+let plain = gpu.snapshot(size: lightSize, backing: 2, history: lightHistory, glow: 0)!
+gpu.luminousIntensity = 5
+let lit = gpu.snapshot(size: lightSize, backing: 2, history: lightHistory, glow: 0)!
+let interpolatedLit = gpu.snapshot(size: lightSize, backing: 2, history: lightHistory, glow: 0,
+                                 previous: lightHistory, alpha: 0.5)!
+func lightEnergy(_ image: CGImage, right: Bool) -> Int {
+    let bitmap = NSBitmapImageRep(cgImage: image)
+    var result = 0
+    for y in 0..<bitmap.pixelsHigh {
+        for x in (right ? bitmap.pixelsWide / 2 : 0)..<(right ? bitmap.pixelsWide : bitmap.pixelsWide / 2) {
+            let color = bitmap.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+            result += Int((color.redComponent + color.greenComponent + color.blueComponent) * 255)
+        }
+    }
+    return result
+}
+for right in [false, true] {
+    let original = lightEnergy(plain, right: right), bright = lightEnergy(lit, right: right)
+    precondition(bright > original, right ? "Trail head did not brighten" : "Overlapping points did not add light")
+    let computed = lightEnergy(interpolatedLit, right: right)
+    precondition(abs(Double(computed - bright)) / Double(bright) < 0.02,
+                 "GPU interpolation changed luminous points")
+}
+for value in [2.5, 10.0] {
+    gpu.luminousIntensity = value
+    let image = gpu.snapshot(size: lightSize, backing: 2, history: lightHistory, glow: 0)!
+    for right in [false, true] {
+        let energy = lightEnergy(image, right: right)
+        let medium = lightEnergy(lit, right: right)
+        if value < 5 {
+            precondition(energy > lightEnergy(plain, right: right) && energy < medium,
+                         "Intermediate intensity must blend smoothly")
+        } else { precondition(energy > medium, "10 must be brighter than the previous 5/10 effect") }
+    }
+}
+gpu.luminousIntensity = 0
+let restored = gpu.snapshot(size: lightSize, backing: 2, history: lightHistory, glow: 0)!
+precondition((restored.dataProvider!.data! as Data) == (plain.dataProvider!.data! as Data),
+             "Disabling luminous points must restore the original pixels")
+print("OK: luminous heads and crossings work at zero glow; interpolation agrees and disabling restores exact pixels.")
+
+// Dot width must be independent of the halo and must not alter positions.
+let sizeHistory: [[RoseEngine.ModernPoint]] = [[.init(x: 0, y: 0, hue: 0.4)]]
+let sizeOriginal = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0.8)!
+let sizeOriginalDots = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0)!
+gpu.pointScale = 0.75
+let smallDots = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0)!
+gpu.pointScale = 2
+let largeDots = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0)!
+let largeHalo = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0.8)!
+let largeInterpolated = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0.8,
+                                     previous: sizeHistory, alpha: 0.5)!
+func totalLight(_ image: CGImage) -> Int { lightEnergy(image, right: false) + lightEnergy(image, right: true) }
+precondition(totalLight(smallDots) < totalLight(sizeOriginalDots) && totalLight(largeDots) > totalLight(sizeOriginalDots),
+             "Dot size must change coverage")
+let normalPixels = NSBitmapImageRep(cgImage: sizeOriginal)
+let largePixels = NSBitmapImageRep(cgImage: largeHalo)
+for y in 0..<normalPixels.pixelsHigh {
+    for x in 0..<normalPixels.pixelsWide where abs(x - normalPixels.pixelsWide / 2) > 8 || abs(y - normalPixels.pixelsHigh / 2) > 8 {
+        precondition(normalPixels.colorAt(x: x, y: y) == largePixels.colorAt(x: x, y: y),
+                     "Point scaling changed the halo outside the dot")
+    }
+}
+precondition(abs(Double(totalLight(largeInterpolated) - totalLight(largeHalo))) / Double(totalLight(largeHalo)) < 0.02,
+             "GPU interpolation must respect point size")
+gpu.pointScale = 1
+let restoredSize = gpu.snapshot(size: lightSize, backing: 2, history: sizeHistory, glow: 0.8)!
+precondition((restoredSize.dataProvider!.data! as Data) == (sizeOriginal.dataProvider!.data! as Data),
+             "1x must restore exact original dots and halos")
+print("OK: point size changes coverage, preserves halo geometry, agrees with GPU interpolation and restores exact pixels at 1x.")

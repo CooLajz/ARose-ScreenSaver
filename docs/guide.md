@@ -52,10 +52,14 @@ Do not move the file while it is selected as your saver. Install a new version b
 | Trail | Controls how much point history stays visible. |
 | Colors | Selects monochrome, ECS or AGA in Retro. Modern uses the continuous RGB rainbow. |
 | Glow | Adjusts light around Modern points from 0–100%. Zero keeps fine points without glow. |
+| Point light | Modern point-light intensity, 0–100%: 0% keeps the original point brightness, 50% matches luminous points, and 100% increases emitted light further. Glow is independent. Default: 0%. On older graphics using the Direct2D fallback, overlap brightening depends on device-context support. |
+| Point size | Modern dot diameter from 0.75× to 2×. Default: 1×, preserving the classic appearance. Soft glow size is independent. |
 | Scale retro figures to display resolution | Enlarges figures for current displays while keeping crisp dots. Disable it for a fixed pixel size as on the Amiga. The later WinRose introduced resolution-based enlargement. |
 | Resume from last figure | Continues approximately from the previous position on the next run. Off by default. |
 | Forget saved figure | Clears the position for the app or saver you are configuring when you click Save. Does not disable continuation. |
 | Debug: show process CPU usage | An optional technical CPU readout; leave it off for ordinary use. |
+
+Appearance settings preview immediately, including style, speed, trail, palette, glow, point light, point size and the CPU overlay. **Cancel** restores the saved configuration; **Save** keeps the changes. Forgetting a saved figure takes effect only after Save.
 
 Continuation restores the figure, rotation and color phase rather than a saved image. Trails rebuild after launch. Disabling continuation does not delete the position; reset it with **Forget saved figure → Save**. Changing appearance may restart the animation.
 
